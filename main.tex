@@ -1,0 +1,83 @@
+%%%%%%%%%%%%%%%%%%%% author.tex %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% sample root file for your "contribution" to a contributed volume
+%
+% Use this file as a template for your own input.
+%
+%%%%%%%%%%%%%%%% Springer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% RECOMMENDED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[graybox]{svmult}
+
+% choose options for [] as required from the list
+% in the Reference Guide
+
+\usepackage{mathptmx}       % selects Times Roman as basic font
+\usepackage{helvet}         % selects Helvetica as sans-serif font
+\usepackage{courier}        % selects Courier as typewriter font
+\usepackage{type1cm}        % activate if the above 3 fonts are
+                            % not available on your system
+%
+\usepackage{makeidx}         % allows index generation
+\usepackage{graphicx}        % standard LaTeX graphics tool
+                             % when including figure files
+\usepackage{multicol}        % used for the two-column index
+\usepackage[bottom]{footmisc}% places footnotes at page bottom
+
+\usepackage[numbers]{natbib}
+
+% see the list of further useful packages
+% in the Reference Guide
+
+\makeindex             % used for the subject index
+                       % please use the style svind.ist with
+                       % your makeindex program
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\title*{Ancestral population genomics with coalescent hidden Markov models}
+\author{Jade Yu Cheng and Thomas Mailund}
+\institute{Jade Yu Cheng \at FIXME
+	\email{name@email.address}
+\and Thomas Mailund \at Bioinformatics Research Centre, Aarhus University \email{mailund@birc.au.dk}}
+\maketitle
+
+\abstract{FIXME}
+
+\textbf{FIXME: rewrite the stuff below---I have just copied it from my thesis for now.}
+
+\section{Introduction}
+
+Over the last three decades several inference methods were developed to model speciation and estimate the timing of splits, the presence or absence of gene-flow during a split, and estimate population genetics parameters of the ancestral species, such as the effective population size. For a detailed review of these, focusing on the human/chimpanzee speciation, we refer to~\citet{Mailund:2014fyb}.
+
+Early methods considered short aligned segments and modelled how these would be different samples from the underlying coalescence process in the ancestral species~\cite{Takahata1995Divergence-time,Innan2006The-effect-of-g,Burgess2008Estimation-of-h,Rannala2003,Yang2010,Yang2006,Yang2002,Becquet:2009ht,Wu:2004ib,Chen:2001dk,Wall2003}. Common for these is that recombination was not explicitly modelled, with the exception of the model of~\citet{Becquet2007A-new-approach-} that allows intra-locus recombination at a cost in computational complexity. The methods considered genomic regions sufficiently short that recombination was considered unlikely and sufficiently apart that the regions could be considered independent.
+
+Sequencing technology, however, has progressed dramatically over the last decade and now multiple full genome sequences are readily available for many related species and constructing sequences for new species is affordable for even small research groups. To fully exploit such data, models will have to explicitly consider recombination. We have to move from ancestral population genetics to \emph{genomics}.
+
+
+\subsection{Sequential Markov coalescent and coalescent hidden Markov models}
+
+Models for ancestral population genetics are based on coalescence theory~\cite{Hein:2005vz} that describes the stochastic process of how lineages of a present day sample coalesce into common ancestors back in time. The outcome of this process, when both coalescence events and recombination events are considered, is called the \emph{ancestral recombination graph} or ARG. The coalescence process with recombination was originally described as a process running backward in time, but~\citet{Wiuf:1999gu} showed that it could also be modelled as a process running along a sequence alignment. This process, however, is computationally intractable for long sequences because it requires keeping track of all local gene trees along the sequence.
+
+Considering the coalescence process as a sequential process along a sequence alignment lead to two innovations for modelling long sequence alignments experiencing recombination: the \emph{sequential Markov coalescence} and \emph{coalescent hidden Markov models}; two ideas that while starting out from different ideas have now largely merged.
+
+The sequential Markov coalescence was introduced by~\citet{McVean:2005ho} who considered a coalescence process where lineages are not allowed to coalesce unless they share ancestral material. They showed that this process would be Markov when considered as a sequential process and dubbed the process the sequential Markov coalescence, SMC. Because the model originated from restrictions on which lineages could coalesce, rather than an attempt to approximate the Wiuf \& Hein model as a Markov process, it does not allow two lineages resulting from a recombination to re-coalesce unless they have first coalesced with other lineages. Consequently, when there are few lineages a large fraction of the coalescence event that would be allowed in the coalescence process are not allowed in the SMC. This was amended by~\citet{Marjoram:2006hp} in a model named SMC$^\prime$ that matches the SMC process except for explicitly allowing these back-coalescence events. This model was further extended to allow higher order Markov dependencies in the MaCS model by \citet{Chen:2009fg}. This early work on sequential Markov coalescence models focused on simulating sequence data and not on data analysis.
+
+Independently of the work on sequential Markov coalescent models we developed a model for inferring the speciation dates of the human-chimpanzee and human-gorilla splits in \citet{Hobolth:2007gz}. While this model was based on ideas from \citet{Wiuf:1999gu}, combined with ideas from \citet{Takahata1995Divergence-time}, it did not explicitly model the coalescence process. Instead it simply specified a hidden Markov model with gene genealogies as hidden states and fitted the rate of changes in these to a sequence alignment. Parameters from the coalescence process were then inferred based on the fitted hidden Markov model parameters. The term \emph{coalescent hidden Markov model}, or CoalHMM, was coined in this paper.
+
+We later constructed a model that merges the coalescent hidden Markov model from \citet{Hobolth:2007gz} with the SMC model in \citet{Dutheil:2009dt}. This model was also applied to the human-chimpanzee and human-gorilla speciation and revealed very clearly that not allowing back-coalescences in the long time periods where all sequences are in isolated species would lead to a serious underestimation of the recombination rate.
+
+To alleviate this we developed a new model that uses continuous time Markov chains (CTMCs) to explicitly model all recombination and coalescence events possible for a pair of neighbouring nucleotides and built a CoalHMM from this in \citet{Mailund:2011dv}. As an added benefit, this model allowed us to infer parameters from a pair of sequences, where the previous methods requires three sequences and incomplete lineage sorting between them.
+
+Independent of this, Li \& Durbin developed a CoalHMM based on the SMC for pairs of sequences, the so-called pairwise sequential Markov coalescent model PSMC~\cite{Li:2011ez}, for inferring changing effective population sizes back in time. \citet{Paul:2011gv} developed a model combining the SMC with a conditional sampling approach to scale the data size beyond pairs, while \citet{Rasmussen:2014cq} developed a sampling approach with the same aim.
+
+A number of models have followed these, extending the models to consider gene-flow patterns~\cite{Steinrucken:2013kb,Mailund:2012ew}, changing population sizes~\cite{Sheehan:2013ib,Schiffels:2014cu} or inference of recombination patters \cite{Munch:2014cb}, and CoalHMMs have been used in a number of whole genome analyses \cite{Locke:2011gn,Scally:2012ik,PradoMartinez:2013dn,Prufer:2012eaa,Miller:2012bx}.
+
+
+\bibliographystyle{spbasic}
+\bibliography{references.bib}
+
+\end{document}
