@@ -50,7 +50,7 @@
 
 \section{Introduction}
 
-\textbf{FIXME: rewrite the stuff below---I have just copied it from my thesis for now.}
+Understanding how species form and diverge is a central topic of biology and by observing emerging species today we can understand many of the genetic and environmental processes involved. Through such observations we can understand the underlying forces that drive speciation, but in order to understand how specific speciations occurred in the past, and understand the specifics of how existing species formed, we must make inference from the signals these events have left behind. The study of fossils is a powerful approach here, but not the only avenue to study past speciations; the speciation processes leave fossils in the genome of the resulting species, and through what you might call genetic archaeology we can study past events from the signals they left behind.
 
 Over the last three decades several inference methods were developed to model speciation and estimate the timing of splits, the presence or absence of gene-flow during a split, and estimate population genetics parameters of the ancestral species, such as the effective population size. For a detailed review of these, focusing on the human/chimpanzee speciation, we refer to~\citet{Mailund:2014fyb}.
 
@@ -76,6 +76,16 @@ To alleviate this we developed a new model that uses continuous time Markov chai
 Independent of this, Li \& Durbin developed a CoalHMM based on the SMC for pairs of sequences, the so-called pairwise sequential Markov coalescent model PSMC~\cite{Li:2011eza}, for inferring changing effective population sizes back in time. \citet{Paul:2010iba} and \citet{Paul:2011gva} developed a model combining the SMC with a conditional sampling approach to scale the data size beyond pairs, while \citet{Rasmussen:2014cqa} developed a sampling approach with the same aim.
 
 A number of models followed these, extending the models to consider gene-flow patterns~\cite{Steinrucken:2013kba,Mailund:2012ewa}, changing population sizes~\cite{Sheehan:2013iba,Schiffels:2014cua} or inference of recombination patters, and selection \cite{Munch:2014cba, Munch:2014cwa}, \cite{Dutheil:2015kl, Munch:2016dn}, and CoalHMMs have been used in a number of whole genome analyses \cite{Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga}.
+
+In this chapter we will present the theory underlying our approach to constructing coalescent hidden Markov models and present our current implementations of various models and how you can apply these to your own genomic analyses.
+
+\section{Constructing coalescent hidden Markov models}
+
+\subsection{Reducing the ARG to two nucleotides}
+
+\subsection{Computing transition probabilities}
+
+\section{Using our CoalHMM software (better title?)}
 
 
 \bibliographystyle{spbasic}
