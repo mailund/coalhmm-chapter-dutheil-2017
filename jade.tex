@@ -2,31 +2,31 @@
 
 \subsection{Overview}
 
-Jocx is a parameterized model inference framework based on hidden Markov mod-
-els. It’s constructed on the foundation of coalescence theory with the key
-approx- imation that the distribution of local genealogies is Markovian along
-the sequence alignment. It combines CoalHMM modeling and several black-box style
-optimiza- tion subroutines with a special focus on heuristic-based evolution
+Jocx is a parameterized model inference framework based on hidden Markov models.
+It's constructed on the foundation of coalescence theory with the key approx-
+imation that the distribution of local genealogies is Markovian along the
+sequence alignment. It combines CoalHMM modeling and several black-box style
+optimization subroutines with a special focus on heuristic-based evolution
 optimizers. The software package is available on GitHub at the following URL.
 
 {\small{}\begin{verbatim}
   https://github.com/jade-cheng/Jocx.git
 \end{verbatim}}
 
-Jocx executes CoalHMM by specifying a model and an optimizer. It uses se- quence
+Jocx executes CoalHMM by specifying a model and an optimizer. It uses sequence
 alignments in the format of ziphmm directories, which is also prepared by Jocx.
-The program prints to standard output the progression of the estimated pa-
-rameters and the corresponding log likelihood. The source package contains a set
-of Python files, and it requires no installation.
+The program prints to standard output the progression of the estimated
+parameters and the corresponding log likelihood. The source package contains a
+set of Python files, and it requires no installation.
 
 \subsection{Input Data}
 
-Jocs takes pairs of aligned sequences as input. The number of sequence pairs de-
-pends on the CoalHMM model specified for a particular execution. We will discuss
-CoalHMM model specification later in this document. For example, for inference
-in a two-population isolation scenario, we need a minimal of one pair of aligned
-sequences, one from each of the two population. The sequences form an alignment
-so they need to match in length and names.
+Jocs takes pairs of aligned sequences as input. The number of sequence pairs
+depends on the CoalHMM model specified for a particular execution. We will
+discuss CoalHMM model specification later in this document. For example, for
+inference in a two-population isolation scenario, we need a minimal of one pair
+of aligned sequences, one from each of the two population. The sequences form an
+alignment so they need to match in length and names.
 
 {\small{}\begin{verbatim}
     $ ls
@@ -90,10 +90,10 @@ in a ZipHMM directory.
   # Creating 5-state alignment in directory: ./ziphmm_iso_a_b/2.ziphmm
 \end{verbatim}}
 
-The first command-line argument, ‘init‘, initializes alignments and zips se-
-quences that are needed to run an experiment. This command must be executed once
-before using the ‘run‘ command. The second argument specified the location of
-the output ZipHMM directory.
+The first command-line argument, ‘init‘, initializes alignments and zips
+sequences that are needed to run an experiment. This command must be executed
+once before using the ‘run‘ command. The second argument specified the location
+of the output ZipHMM directory.
 
 {\small{}\begin{verbatim}
   $ ls
@@ -133,10 +133,10 @@ the two-population two-sequence isolation scenario, shown below.
 
 \subsubsection{Sequence Order}
 
-The two-population isolation demographic model is symmetric, so the order of in-
-put Fasta sequences do not matter. This is not always the case. For example, in
-a three-population admix model, shown below, the roles populations take are
-differ- ent. Population C is admixed, and it’s formed from ancestral siblings of
+The two-population isolation demographic model is symmetric, so the order of
+input Fasta sequences do not matter. This is not always the case. For example,
+in a three-population admix model, shown below, the roles populations take are
+different. Population C is admixed, and it's formed from ancestral siblings of
 the two source populations, A and B. The order of input Fasta sequences,
 therefore, needs to match.
 
@@ -159,9 +159,9 @@ therefore, needs to match.
     :
 \end{verbatim}}
 
-The ‘init‘ command’s execution takes aligned Fasta sequences following the or-
-der specified above, i.e. one sequence from population A, followed by one
-sequence from population B, followed by one sequence from population C.
+The ‘init‘ command's execution takes aligned Fasta sequences following the order
+specified above, i.e. one sequence from population A, followed by one sequence
+from population B, followed by one sequence from population C.
 
 {\small{}\begin{verbatim}
   $ ls
@@ -249,9 +249,9 @@ sequence from population B, followed by one sequence from population C.
 \end{verbatim}}
 
 \subsubsection{Sequences per Population} In the two examples above, each
-population contributes one and only one sequence to the CoalHMM model’s
-construction. Jocx also has models that support two se- quences per population.
-This is to better take advantage of the genomic data that’s available to the
+population contributes one and only one sequence to the CoalHMM model's
+construction. Jocx also has models that support two sequences per population.
+This is to better take advantage of the genomic data that's available to the
 researcher.
 
 {\small{}\begin{verbatim}
@@ -371,10 +371,10 @@ which are then used to construct six HMMs for the inference.
 
 \subsection{MLE Optimization}
 
-Jocx implements three optimization subroutines, Nelder-Mead (NM), Genetic Algo-
-rithm (GA), and Particle Swarm Optimization (PSO). After preparing the ZipHMM
-directories, user can choose to proceed to CoalHMM parametrized model inference
-using one of these three black-box optimizers.
+Jocx implements three optimization subroutines, Nelder-Mead (NM), Genetic
+Algorithm (GA), and Particle Swarm Optimization (PSO). After preparing the
+ZipHMM directories, user can choose to proceed to CoalHMM parametrized model
+inference using one of these three black-box optimizers.
 
 We use the two-population isolation CoalHMM as an example in this sections. The
 first command-line argument, ‘run‘, runs an experiment. Before running an
@@ -409,9 +409,9 @@ time, then the coalescent rate, and finally the recombination rate.
 NM was introduced by John Nelder and Roger Mead in 1965 [ref(thesis25)] as a
 technique to minimize an objective function in a many-dimensional space. This
 method uses several algorithm coefficients to determine the amount of effect of
-pos- sible actions. They are the reflection coefficient r, the expansion
+possible actions. They are the reflection coefficient r, the expansion
 coefficient c, the contraction coefficient g, and the shrinkage coefficient s.
-Standard values recom- mended in [ref(thesis3)] are r = 1, c = 2, g = 1/2, and s =
+Standard values recommended in [ref(thesis3)] are r = 1, c = 2, g = 1/2, and s =
 1/2.
 
 {\small{}\begin{verbatim}
@@ -435,12 +435,12 @@ Standard values recom- mended in [ref(thesis3)] are r = 1, c = 2, g = 1/2, and s
     1 fmin-out -37.8927822292 0.000695082517418 200504630.601 32081.652825
 \end{verbatim}}
 
-In the output of NM’s execution, we have a final report of whether or not the
+In the output of NM's execution, we have a final report of whether or not the
 execution was successful together with the optimal solution. Different reasons
-con- tribute to the failure of an execution. The number of parameters to solve
-is a major reason. When CoalHMM models become complex, the number of parameters
-in- crease to a level beyond NM’s capability. Initial parameters is another
-major reason for failed NM executions.
+contribute to the failure of an execution. The number of parameters to solve is
+a major reason. When CoalHMM models become complex, the number of parameters
+increase to a level beyond NM's capability. Initial parameters is another major
+reason for failed NM executions.
 
 \subsubsection{GA}
 
@@ -500,7 +500,7 @@ people have developed different techniques.
   :
 \end{verbatim}}
 
-In the output of GA’s execution, we have multiple generations of solutions, and
+In the output of GA's execution, we have multiple generations of solutions, and
 multiple solutions per generation. Solutions in each generation is ordered by
 the fitness, i.e. best solution is at the top. The final solution is, therefore,
 the first solution in the last generation.
@@ -508,13 +508,13 @@ the first solution in the last generation.
 \subsubsection{PSO}
 
 PSO was introduced by Eberhart and Kennedy in 1995 [ref(thesis6)] as an
-optimiza- tion technique relying on stochastic processes, similar to GA. As its
+optimization technique relying on stochastic processes, similar to GA. As its
 name implies, each individual solution mimics a particle in a swarm. Each
 particle holds a velocity and keeps track of the best positions it has
 experienced and best position the warm has experienced. The former encapsulates
-the social influence, i.e. a force pulling towards the swarm’s best. The latter
+the social influence, i.e. a force pulling towards the swarm's best. The latter
 encapsulates the cognitive influence, i.e. a force pulling towards the
-particle’s best. Both forces act on the velocity and drive the particle through
+particle's best. Both forces act on the velocity and drive the particle through
 a hyper parameter space.
 
 {\small{}\begin{verbatim}
@@ -573,10 +573,10 @@ a hyper parameter space.
   :
 \end{verbatim}}
 
-In the output of the PSO’s execution, we have multiple generations and multiple
+In the output of the PSO's execution, we have multiple generations and multiple
 particles (solutions) per generation. Each particle contains two sets of
 solutions, the current solution and the best solution that this particle has
-encountered throughout the PSO’s execution. The latter is always better than the
-former. Similar to GA, each generation is ordered by the particles’ fitness. The
+encountered throughout the PSO's execution. The latter is always better than the
+former. Similar to GA, each generation is ordered by the particles' fitness. The
 final solution is, therefore, the second solution of the first particle in the
 last generation.
