@@ -39,8 +39,8 @@
 \newcommand{\G}{\ensuremath{G}}
 \renewcommand{\D}{\ensuremath{D}}
 \renewcommand{\lhd}{\ensuremath{\mathcal{L}}}
-\newcommand{\T}{\ensuremath{\mathbf{T}}}
-\renewcommand{\E}{\ensuremath{\mathbf{E}}}
+\newcommand{\T}{\ensuremath{T}}
+\renewcommand{\E}{\ensuremath{E}}
 
 \newcommand{\argmax}{\ensuremath{\operatorname*{arg\,max}}}
 \newcommand{\intd}{\ensuremath{\mathrm{\;d\,}}}
@@ -102,99 +102,32 @@ A number of models followed these, extending the models to consider gene-flow pa
 
 In this chapter we will present the theory underlying our approach to constructing coalescent hidden Markov models and present our current implementations of various models and how you can apply these to your own genomic analyses.
 
+\section{The hidden Markov model approximation to the coalescent with recombination}
 
-\section{The coalescent process and the hidden Markov model approximation}
+The main objectives of the methods we describe in this chapter is to infer demographic parameters, $\Theta$, given genetic data, $D$. In particular, we are interested in computing the likelihood of parameters given data, $\lhd(\Theta\,|\,D)$. Here, we assume that the genetic data is aligned sequences of a number of sampled genes. If our samples were related through a known tree, $\G$, this would be a solved problem. There are standard approaches, as Felsenstein's peeling algorithm \cite{Felsenstein_1981}, to computing the probability of seeing a particular alignment given a genealogy and a substitution model, which we could subsume into the parameters $\Theta$.
 
-The sequential Markov coalescent and coalescent hidden Markov models aim to approximate the coalescent model with recombination in order to make analysis tractable. The coalescent model of population genetics describes the ancestry of a sample of observed genes and gives probabilities to all the possible genealogies that can explain the observation. The typical formulation of the model is as a continuous time Markov chain (CTMC) that describes how the sampled genes find common ancestors as we look further and further back in time. 
-
-A (time homogeneous) continuous time Markov chain (CTMC) is a random process $\{\,X(t) \;|\; t \geq 0 \,\}$ where the infinitesimal rate of change between states at time $t$ is given by a \emph{rate matrix} $Q$: Let $\pi(t)$ be the vector of state probabilities $\pi(t)_i = \Pr(X(t)=i)$ then $\frac{\mathrm{d}\,\pi(t)}{\mathrm{d}\,t} = \pi(t)^TQ$. The off-diagonal entries of $Q$ contains the rates at which the system changes state, so $Q_{i,j}$ is the rate of change from state $i$ to state $j$, and the diagonal entries are given by $Q_{i,i} = - \sum_{j\neq i} Q_{i,j}$. The probability of going from state $i$ at time $s$ to state $j$ at time $t>s$ in such a system is given by $\Pr(X(t)=j\,|\,X(s)=i) = \left[\exp\left(Q\left(t-s\right)\right)\right]_{i,j}$ and given an initial probability vector $\pi(0)$ the probability vector at time $t\geq 0$ is given by $\pi(t)^T=\pi(0)^T\exp(Qt)$.
-
-There is a rich theory for CTMCs so expressing systems in terms of these gives us a very powerful framework to work in. The key property we will use is the way of computing the transition probabilities $\Pr(X(t)=j\,|\,X(s)=i)$ using matrix exponentiation $\exp\left(Q\left(t-s\right)\right)$. This can be done fully automatically---several algorithms exists and matrix exponentiation is implemented in many numerical software packages \cite{Moler2003}---and it greatly simplifies the mathematical modelling---see e.g.\ \citet{Hobolth:2011hl} and \citet{Andersen:2013iz} for examples of where matrix exponentiation simplifies otherwise rather complex computations.
-
-Constructing a CTMC consists of specifying the rate matrix $Q$ and the initial probability vector $\pi(0)$. In most cases this is relatively straightforward, mathematically at least; explicitly specifying the rate matrix can be problematic when the state space is very large. When the state space is large it becomes necessary to automatically generate it and construct the rate matrix. In the remainder of this section, we describe how to automatically construct CTMCs capturing the coalescence process and how these can then be used to construct coalescent hidden Markov models.
-
-\subsection{A token game for constructing CTMCs}
-
-To define a continuous time Markov chain, you need to specify its rate matrix, $Q$, and initial state probabilities, $\pi(0)$. Doing this manually is straightforward for small systems, but infeasible once the state space of the CTMC grows beyond a few tens of states. When developing the CoalHMM in \citet{Mailund:2011dva}, it took us several tries to get it right, and we didn't manage completely until we automated it. The CTMC used in that model has 16 states. The CTMCs we use when constructing CoalHMMs are all constructed automatically from a demography specification, and in this section we explain one formal way of specifying CTMCs that we will use for the remainder of the chapter. The approach is based on \emph{Coloured Petri Nets}~\cite{Jensen:2013jg}, but simplified somewhat since we only need very simple models.
-
-We construct CTMCs by playing a simple game. We imagine we have a bucket, and in this bucket we have a number of ``tokens'', pieces of information we can manipulate. The content of the bucket is a state the CTMC can be in, and the state space of the CTMC is given by the set of states we can reach by manipulating the content of the bucket using a set of transitions---which we will soon make more formal---from a select set of initial states. For coalescence processes, we always start from a single initial state which contain present day genes, the transitions are the events that can happen as we trace the ancestry of these genes back in time, and an instance of this ``token game'' from the initial state until all present day genes have found a common ancestor corresponds to a genealogy of the genes. Thus, our vector $\pi(0)$ is always specified as having a point probability at this initial state and having zero probability everywhere else.
-
-Graphically, we represent the bucket as a circle with the tokens in it. The actual representation in an implementation will be as a set or multi-set, but this graphical representation makes the content of the bucket clearer. An example is shown in Fig.~\ref{fig:example-CPN} of a bucket containing four tokens, the numbers $1$ to $4$.
-
-\begin{figure}[h]
-\sidecaption[t]
-\includegraphics[scale=.45]{figures/example-CPN}
-\caption{Example token game that adds together numbers as long as the result is less than eight. The single transition picks up two tokens with rate $A$ and puts back a token that contains the sum of the two. The condition for applying the transition insists that this result must be less than eight.}
-\label{fig:example-CPN}
-\end{figure}
-
-We represent transitions as boxes. Inside the boxes, we specify the rate at which we can apply them, in Fig.~\ref{fig:example-CPN} we have a single transition that is applied at rate $A$. Transitions will have an edge going from the bucket to the transition and another going back. The edge from bucket to transition specifies which tokens it will pick up from the bucket and the other which tokens it will put back. If it picks up or puts back more than one token, they are written separated by the symbol $\oplus$. The transition in Fig.~\ref{fig:example-CPN} picks up two tokens, named $n$ and $m$ and puts back a single token containing their sum, $n+m$. If their are restrictions to when we can apply a transition, we write those next to the transition. In the case of the addition transition, we require that $n + m < 8$.
-
-Occasionally, we will define transitions textually instead of graphically. In that case, we will write them as an arrow between the input tokens and output tokens with the rate above the error and the condition written afterwards. The $A$ transition from Fig.~\ref{fig:example-CPN} would thus be written ``$\trans{n\oplus m}{A}{n+m}$ when $n+m>8$''.
-
-From the token game we can make a \emph{reachability} or \emph{state space} graph. This graph will contain as its notes all the bucket configurations it is possible to reach by applying the transitions from a set of initial states---or in our case, a single initial state. Whenever we can get from one bucket configuration to another by applying a single transition, we add an edge between the two corresponding graph nodes. We annotate these edges with the rate of the transition---and in cases where there is more than one way to get from one specific node to another, we annotate the edge with the sum of rates at which we can move. Figure~\ref{fig:example-state-space-graph} shows this graph for the token game in Fig.~\ref{fig:example-CPN}. To simplify the notation, we have not labelled the edges with rate $A$ but only the two with $2A$. If an edge does not have a label, think of it as labelled with $A$.
-
-\begin{figure}[t]
-\sidecaption[t]
-\includegraphics[scale=.30]{figures/example-state-space-graph}
-\caption{Example token game that adds together numbers as long as the result is less than eight. The single transition picks up two tokens with rate $A$ and puts back a token that contains the sum of the two. The condition for applying the transition insists that this result must be less than eight.}
-\label{fig:example-state-space-graph}
-\end{figure}
-
-The final step of constructing the CTMC, getting the rate matrix $Q$ from this graph, is now straightforward. We first enumerate all the nodes, so we have a mapping from CTMC states to matrix indices, and then we construct a matrix $Q$ where we set $Q_{ij}, i\neq j$ to zero if there is not an edge from state $i$ to $j$ in the graph and the rate on the edge if there is. Finally, we set the diagonal elements $Q_{ii}$ to $-\sum_{j \neq i} Q_{ij}$.
-
-
-\todo[inline]{Everything after this point needs to be rewritten to match the graphical language of CTMC construction}
-
-\subsection{The coalescence process and continuous time Markov chains}
-
-In the coalescence model, the CTMC runs backwards in time, and if we ignore for a second that lineages can undergo recombination or be part of a structured population, the only events we observe are when two lineage coalesce into a common ancestor. If we ignore the identity of the genes, and we start with $n$ genes, the states of the system can be represented by numbers from $1$ to $n$, $k=1,2,\ldots,n$, and the system will have transitions $k\to k-1$ for $k>1$ occurring with rate $C{k \choose 2}$ where $C$ is the rate at which pairs of lineages coalesce, a parameter that is determined by the size of the population the samples are taken from (the so-called ``effective population size'', $2N_e$, or its mutation-scaled version $\theta=4 N_e \mu$, see \citet{Hein:2004ta}). Any pair of lineages will coalesce with rate $C$, so with $k$ lineages there are $k \choose 2$ pairs and thus the rate of change is $C{k \choose 2}$. We start in the state $n$ and we typically run this process until we are left with a single lineage at which point we have a tree genealogy explaining the observed genes. This process lets us sample genealogies, and we can later randomly assign gene labels to leaves in sampled trees and assign mutations to edges on the trees to explain variation in the observed genes.
-
-\todo[inline]{Make a good illustration of a coalescence tree.}
-
-First simulating genealogies and then assigning identity to the leaves is only a valid approach if there is complete symmetry between the genes, however. Several variations on the coalescence process can break this symmetry. If the genes are sampled from a structured population, for example, the rate of coalescence will depend on which pair of lineages coalesce. Without complicating the process with population structure yet, we can preserve lineage identity in a finite state CTMC by representing states by more than the number of lineages. We will explicitly model the identity of ancestral lineages by tagging them with the genes they are ancestral to. If we let $S=\{\,1,2,\ldots,n\,\}$ denote the set of genes, then any subset $L\subseteq S$ can be thought of as an ancestral lineage, ancestral to the genes in $L$.
-
-If we let $\partition\left(S\right)$ denote the set of partitions of a set $S$, i.e.\ the set of all sets $P=\{\,x_1,x_2,\ldots,x_k\,\}$ such that $x_i\cap x_j=\emptyset$, $x_i\neq\emptyset$, and $\bigcup_i x_i = S$, then any element $P\in\partition\left(S\right)$ corresponds to a set of ancestral lineages of $S$. A natural way to model the coalescence process as a finite state CTMC is thus to use $\partition\left(S\right)$ as the set of states. The process will start in the partition where each sample is a singleton, $\{\,\{i\}\;|\;i=1,\ldots,n\,\}$, and finish in the state where all samples have merged into the same lineage, $\{\,S\,\}$. The transitions of the CTMC will go from one partition to another and capture coalescence events. For each partition $P=\{\,x_1,x_2,\ldots,x_k\,\}$ we can pick out two lineages, $x_i$ and $x_j$, and merge them into one, $x_i\cup x_j$, to create the partition $P'=\{\,x_i\cup x_j,x_1,\ldots,x_{i-1},x_{i+1},\ldots,x_{j-1},x_{j+1},\ldots,x_k\,\}$. In the transition system view we see this as a transition $P\to P'$. This particular transition, that merges lineages $x_i$ with $x_j$, occurs with rate $c$---the rate at which a \emph{specific} pair of lineages coalesce. Since a partition with $k$ elements will have $k \choose 2$ pairs to choose from, the rate out of any state with $k$ lineages will still be $c{k \choose 2}$, but with this model of the process we explicitly keep track of which lineages each sampled gene belongs to; at the cost of having a much larger state space, of course.
-
-\todo[inline]{Insert Figure 1 from thesis here}
-
-Using the CTMC formulation of the coalescence process we can easily compute the density of any given genealogy, $f(\G\,|\,\Theta)$, given the parameters of the CTMC, $\Theta$, (in the simple coalescence process we have described here, the only parameter is the coalescence rate, $\Theta = \left\{c\right\}$). Given a genealogy, it is also straightforward to get the probability of observing our data, the sampled genes, $\D$: $\Pr(\D\,|\,\G,\Theta)$. This probability depends on the mutation model and a simple approach is to sum over all possible sequences at internal nodes using standard methods such as Felsenstein's peeling algorithm \cite{Felsenstein_1981}. Then, the substitution model might contain more parameters as part of $\Theta$. In our approach, though, we use a Jukes-Cantor model and we scale time (via the coalescence rate $c$) in units of substitutions, so we have no additional parameters for mutations, but nothing prevents you from using other models.
-
-More complex demographics scenarios can be modelled and their parameters will be part of $\Theta$, and in many applications it is these parameters that are of interest rather than the actual underlying genealogy, which is considered a nuisance parameter to be integrated out to get the likelihood:
-
+Of course, we never know the exact tree relating a sample of genes, but with a density over genealogies, $f(\G\,|\,\Theta)$, we could treat $\G$ as a nuisance parameter and integrate it away to get
 \begin{equation}
-	\label{eq:likelihood-integral}
     \lhd(\Theta\,|\,\D) = \int f(\D\,|\,\G,\Theta) f(\G\,|\,\Theta) \intd\G .
 \end{equation}
 
-This integral over all possible genealogies is generally not efficiently computable and must either be approximated through sampling approaches or by approximating the coalescence process with a simpler model where the integral \emph{can} be computed. 
+If we consider a single column of the genetic data, then we know that our samples are related through some tree. With more than one nucleotide, we cannot know this---recombinations could have broken apart ancestral lineages and different nucleotides along the alignment might be related through different genes. The real genealogy underlying genetic sequence data is a graph, known as the \emph{ancestral recombination graph} \cite{Hein:2004ta}.\todo{Should we have an example of an ARG?}
 
-
-\subsection{The coalescent with recombination}
-
-When adding recombination to the coalescent process, we give genes length. Without recombination, we simply model genes as atomic entities with lineages going back in time; with recombination, the genes have a length dimension and the ancestry of genes can break up into several lineages as we move into the past.
-
-If we model lineages as consisting of a finite length of nucleotides we can have lineage $x$ represented as $x=(x_1,x_2,\ldots,x_L)$ where each $x_i$ is a subset of the set of samples. Each $x_i$ plays the role of a single lineage when we model the process without recombination; it consists of the samples that have lineage $x$ as a common ancestor at the $i$'th locus. A state of the CTMC will consist of a set of such lineages---and to ensure that this state space is finite we require that for all lineages $x$ at least some $x_i$s are non-empty---such that the $i$'th index sets are disjunct and such that the union of all $i$'th index sets is the full set of samples. We do not require that the $i$'th index sets are partitions of the set of samples; some can be empty sets. The non-empty sets we call \emph{ancestral material}. These represent genetic material that is ancestral to some of the samples we are modelling the ancestry of. We require that all lineages we consider contain some ancestral material.
-
-Pairs of lineages can coalesce, similar to how it was modelled without recombination, and individual lineages can recombine into two lineages. A coalescence event would take two lineages, $x=(x_1,\ldots,x_L)$ and $y=(y_1,\ldots,y_L)$, and produce the lineage $z=(x_1\cup y_1,\ldots,x_L\cup y_L)$. A recombination event would take one lineage $x=(x_1,\ldots,x_L)$ and pick a recombination point $k: 1 \leq k < L$. It would then produce two lineages $(x_1,\ldots,x_k,\emptyset,\ldots,\emptyset)$ and $(\emptyset,\ldots,\emptyset,x_{k+1},\ldots,x_L)$ where the ancestral material up to point $k$ is put in the first lineage and the ancestral material after point $k$ is put in the second lineage, and where we would restrict constructed lineages so recombination does not produce lineages without any ancestral material.
-
-
-\todo[inline]{Make a good illustration of recombining lineages.}
-
-Since this is another CTMC we can, in principle, compute the density of all genealogies, $f(\G\,|\,\Theta)$. We generally will assume that mutations at individual sites are independent, so we can compute the probability of the data conditional on the genealogy site-wise
+We usually assume that, although the genealogies at different sites are not independent, the mutations at these sites are, so we could break down $\Pr(\D\,|\,\G,\Theta)$ into alignment columns and get
 \begin{equation}
   \Pr(\D\,|\,\G,\Theta) =
   \prod_{i=1}^L \Pr(\D_i\,|\,\G_i,\Theta)
 \end{equation}
-where $\D_i$ denote the variation at site $i$ and $\G_i$ the genealogy at site $i$.
+where $\D_i$ denote the column $i$ in the alignment and $\G_i$ the (local) genealogy at site $i$. This gives us the parameter likelihood
+\begin{equation}
+	\label{eq:likelihood-integral}
+    \lhd(\Theta\,|\,\D) = 
+    \int \prod_{i=1}^L \Pr(\D_i\,|\,\G_i,\Theta) f(\G\,|\,\Theta) \intd\G .
+\end{equation}
 
-In practice, however, the state space for this CTMC makes this approach intractable when it comes to integrate over all genealogies as in \eqref{eq:likelihood-integral}. While the integral in \eqref{eq:likelihood-integral} itself often requires sampling or approximations to compute, it is often doable. The larger state space in the process with recombination makes the integration infeasible for all but the smallest sequences and smallest sample sizes.
-
-
-\subsection{The hidden Markov model approximation}
+The density over genealogies is available from coalescence theory and theoretically we could do this integral. In practice, however, the space of possible genealogies makes this approach intractable.
 
 The sequential Markov coalescence approximates the coalescence process with recombination by assuming that the dependencies between genealogies is Markov:
-
 \begin{equation}
   \label{eq:markov-genealogy}
   f(\G\,|\,\Theta) \approx
@@ -285,8 +218,80 @@ for all $g$. The \texttt{F} table has $N\times L$ entires and computing each rec
   \lhd(\Theta\,|\,\D) = \sum_{g} \mathtt{F}[g,L].
 \end{equation}
 
+Thus, to get a tractable approach to infer demographic parameters from genetic data under the coalescence with recombination, we only need to construct the three HMM parameters $\pi$, $\T$, and $\E$. As seen in \eqref{eq:pi-from-joint-prob} and \eqref{eq:transitions-from-joint-prob}, we can derive $\pi$ and $\T$ from joint probabilities of two genealogies, and as mentioned earlier, we can compute $\E$ from standard algorithms (once we have discretised time). The crux of deriving a CoalHMM is thus computing probabilities $\Pr(G_i,G_{i+1})$. We will show how to do this in three steps. First we show how to construct models that trace the ancestry of neighbouring nucleotides back in time. Such ancestries contain more information than just the neighbouring nucleotides, so we need to integrate information away, and we show how this can be done secondly. The models we build this way captures fixed demographic scenarios and we can only use them to infer parameters from such. To allow changes in the ancestry, such as populations splitting and merging, we need a way to combine the models, and we finish the story of how to create coalescence hidden Markov models by showing how this can be done.
+
+\section{The coalescent process and continuous time Markov chains}
+
+The sequential Markov coalescent and coalescent hidden Markov models aim to approximate the coalescent model with recombination in order to make analysis tractable. The coalescent model of population genetics describes the ancestry of a sample of observed genes and gives probabilities to all the possible genealogies that can explain the observation. The typical formulation of the model is as a continuous time Markov chain (CTMC) that describes how the sampled genes find common ancestors as we look further and further back in time. 
+
+A (time homogeneous) continuous time Markov chain (CTMC) is a random process $\{\,X(t) \;|\; t \geq 0 \,\}$ where the infinitesimal rate of change between states at time $t$ is given by a \emph{rate matrix} $Q$: Let $\pi(t)$ be the vector of state probabilities $\pi(t)_i = \Pr(X(t)=i)$ then $\frac{\mathrm{d}\,\pi(t)}{\mathrm{d}\,t} = \pi(t)^TQ$. The off-diagonal entries of $Q$ contains the rates at which the system changes state, so $Q_{i,j}$ is the rate of change from state $i$ to state $j$, and the diagonal entries are given by $Q_{i,i} = - \sum_{j\neq i} Q_{i,j}$. The probability of going from state $i$ at time $s$ to state $j$ at time $t>s$ in such a system is given by $\Pr(X(t)=j\,|\,X(s)=i) = \left[\exp\left(Q\left(t-s\right)\right)\right]_{i,j}$ and given an initial probability vector $\pi(0)$ the probability vector at time $t\geq 0$ is given by $\pi(t)^T=\pi(0)^T\exp(Qt)$.
+
+\todo[inline]{Add an example here to make it more understandable.}
+
+There is a rich theory for CTMCs so expressing systems in terms of these gives us a very powerful framework to work in. The key property we will use is the way of computing the transition probabilities $\Pr(X(t)=j\,|\,X(s)=i)$ using matrix exponentiation $\exp\left(Q\left(t-s\right)\right)$. This can be done fully automatically---several algorithms exists and matrix exponentiation is implemented in many numerical software packages \cite{Moler2003}---and it greatly simplifies the mathematical modelling---see e.g.\ \citet{Hobolth:2011hl} and \citet{Andersen:2013iz} for examples of where matrix exponentiation simplifies otherwise rather complex computations.
+
+Constructing a CTMC consists of specifying the rate matrix $Q$ and the initial probability vector $\pi(0)$. In most cases this is relatively straightforward, mathematically at least; explicitly specifying the rate matrix can be problematic when the state space is very large. When the state space is large it becomes necessary to automatically generate it and construct the rate matrix. In the remainder of this section, we describe how to automatically construct CTMCs capturing the coalescence process and how these can then be used to construct coalescent hidden Markov models.
+
+\subsection{A token game for constructing CTMCs}
+
+To define a continuous time Markov chain, you need to specify its rate matrix, $Q$, and initial state probabilities, $\pi(0)$. Doing this manually is straightforward for small systems, but infeasible once the state space of the CTMC grows beyond a few tens of states. When developing the CoalHMM in \citet{Mailund:2011dva}, it took us several tries to get it right, and we didn't manage completely until we automated it. The CTMC used in that model has 16 states. The CTMCs we use when constructing CoalHMMs are all constructed automatically from a demography specification, and in this section we explain one formal way of specifying CTMCs that we will use for the remainder of the chapter. The approach is based on \emph{Coloured Petri Nets}~\cite{Jensen:2013jg}, but simplified somewhat since we only need very simple models.
+
+We construct CTMCs by playing a simple game. We imagine we have a bucket, and in this bucket we have a number of ``tokens'', pieces of information we can manipulate. The content of the bucket is a state the CTMC can be in, and the state space of the CTMC is given by the set of states we can reach by manipulating the content of the bucket using a set of transitions---which we will soon make more formal---from a select set of initial states. For coalescence processes, we always start from a single initial state which contain present day genes, the transitions are the events that can happen as we trace the ancestry of these genes back in time, and an instance of this ``token game'' from the initial state until all present day genes have found a common ancestor corresponds to a genealogy of the genes. Thus, our vector $\pi(0)$ is always specified as having a point probability at this initial state and having zero probability everywhere else.
+
+Graphically, we represent the bucket as a circle with the tokens in it. The actual representation in an implementation will be as a set or multi-set, but this graphical representation makes the content of the bucket clearer. An example is shown in Fig.~\ref{fig:example-CPN} of a bucket containing four tokens, the numbers $1$ to $4$.
+
+\begin{figure}[h]
+\sidecaption[t]
+\includegraphics[scale=.45]{figures/example-CPN}
+\caption{Example token game that adds together numbers as long as the result is less than eight. The single transition picks up two tokens with rate $A$ and puts back a token that contains the sum of the two. The condition for applying the transition insists that this result must be less than eight.}
+\label{fig:example-CPN}
+\end{figure}
+
+We represent transitions as boxes. Inside the boxes, we specify the rate at which we can apply them, in Fig.~\ref{fig:example-CPN} we have a single transition that is applied at rate $A$. Transitions will have an edge going from the bucket to the transition and another going back. The edge from bucket to transition specifies which tokens it will pick up from the bucket and the other which tokens it will put back. If it picks up or puts back more than one token, they are written separated by the symbol $\oplus$. The transition in Fig.~\ref{fig:example-CPN} picks up two tokens, named $n$ and $m$ and puts back a single token containing their sum, $n+m$. If their are restrictions to when we can apply a transition, we write those next to the transition. In the case of the addition transition, we require that $n + m < 8$.
+
+Occasionally, we will define transitions textually instead of graphically. In that case, we will write them as an arrow between the input tokens and output tokens with the rate above the error and the condition written afterwards. The $A$ transition from Fig.~\ref{fig:example-CPN} would thus be written ``$\trans{n\oplus m}{A}{n+m}$ when $n+m>8$''.
+
+From the token game we can make a \emph{reachability} or \emph{state space} graph. This graph will contain as its notes all the bucket configurations it is possible to reach by applying the transitions from a set of initial states---or in our case, a single initial state. Whenever we can get from one bucket configuration to another by applying a single transition, we add an edge between the two corresponding graph nodes. We annotate these edges with the rate of the transition---and in cases where there is more than one way to get from one specific node to another, we annotate the edge with the sum of rates at which we can move. Figure~\ref{fig:example-state-space-graph} shows this graph for the token game in Fig.~\ref{fig:example-CPN}. To simplify the notation, we have not labelled the edges with rate $A$ but only the two with $2A$. If an edge does not have a label, think of it as labelled with $A$.
+
+\begin{figure}[t]
+\sidecaption[t]
+\includegraphics[scale=.30]{figures/example-state-space-graph}
+\caption{Example token game that adds together numbers as long as the result is less than eight. The single transition picks up two tokens with rate $A$ and puts back a token that contains the sum of the two. The condition for applying the transition insists that this result must be less than eight.}
+\label{fig:example-state-space-graph}
+\end{figure}
+
+The final step of constructing the CTMC, getting the rate matrix $Q$ from this graph, is now straightforward. We first enumerate all the nodes, so we have a mapping from CTMC states to matrix indices, and then we construct a matrix $Q$ where we set $Q_{ij}, i\neq j$ to zero if there is not an edge from state $i$ to $j$ in the graph and the rate on the edge if there is. Finally, we set the diagonal elements $Q_{ii}$ to $-\sum_{j \neq i} Q_{ij}$.
+
+
+
+\subsection{The coalescence process}
+
+The coalescence process \cite{Hein:2004ta} models the genealogy of a set of present day genes by tracking their ancestry back in time. It is constructed as a continuous time Markov chain that runs backwards in time. In its simplest form, there is a single possible transition, a \emph{coalescence} event, that takes two genetic lineages and merge them into one ancestral lineage. Any run of this CTMC from the initial state to a final state, where all present day genes have found their common ancestor, corresponds to a genealogy. Conversely, we can assign probability densities to all genealogies, since the probability of seeing any given genealogy is the same as the probability that the CTMC will have a run matching it.
+
+In the token game formulation of this process, we can represent genetic lineages as sets. Any genetic lineage of interest to us will be ancestral to one or more of the present day genes we are modelling, so we represent such lineages as the set of descendants. We start out with the genes in the bucket as singletons. The coalescence transition takes two lineages and merge them into their shared ancestral lineage---the new ancestral lineage is ancestor to both the descendants in the first lineage and the second, so it is the union of the two lineages. We therefore define the coalescence transition as \trans{n \oplus m}{C}{n \cup m}. An example, with three genes, is shown in Fig.~\ref{fig:coalescence-CPN}.
+
+\begin{figure}[t]
+\sidecaption[t]
+\includegraphics[scale=.25]{figures/coalescence-CPN}
+\caption{Coalescence token game and state space for a setup with three initial genes. Each path through the reachability graph from the initial state to the final state, the bucket containing $\{1,2,3\}$ correspond to a topology of the genealogy of three genes. These topologies are shown next to the middle node in these paths. In actual runs of the coalescence CTMC, branch length probabilities are determined by the stochasticity of the CTMC.}
+\label{fig:coalescence-CPN}
+\end{figure}
+
+The coalescence rate $C$ is traditionally not a primary parameter of the coalescence process. Rather, it is defined via the so-called ``effective population size'', $2N_e$, or its mutation-scaled version $\theta=4 N_e \mu$, see \citet{Hein:2004ta}, where $C=2/\theta$. Within the CTMC framework we use in this chapter, however, it is more convenient to use $C$ as the primary unit and the effective population size as the derived.
+
+\todo[inline]{Everything after this point needs to be rewritten to match the graphical language of CTMC construction}
+
+
+
+\subsection{The coalescent with recombination}
+
+
+
+
 
 \section{Constructing coalescent hidden Markov models}
+
+\todo[inline]{Update this intro. I stole from it for an earlier section}
 
 To construct a hidden Markov model to approximate the coalescence process for a given demographic model, with a given set of associated parameters, we must construct the HMM parameters: the tuple $(\pi,\T,\E)$. As seen in \eqref{eq:pi-from-joint-prob} and \eqref{eq:transitions-from-joint-prob}, we can derive $\pi$ and $\T$ from joint probabilities of two genealogies, and as mentioned earlier, we can compute $\E$ from standard algorithms (once we have discretised time), so the crux of deriving the CoalHMM is computing probabilities $\Pr(G_i,G_{i+1})$. This, we can compute from the CTMC that models the coalescence process in the given demography; if we know how the CTMC that models the lineages of two neighbouring nucleotides change over time, we can extract the two neighbouring genealogies from it.
 
