@@ -27,25 +27,12 @@
 
 \usepackage[sort&compress,numbers]{natbib}
 \usepackage{todonotes}
-\usepackage{amsmath, amsfonts}
-\usepackage{blkarray}
-\usepackage{xypic}
 
 %% macros for the manuscript.... %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\newcommand{\partition}{\ensuremath{\mathbf{P}}}
-
-%% Symbols for likelihoods
-\newcommand{\G}{\ensuremath{G}}
-\renewcommand{\D}{\ensuremath{D}}
 \renewcommand{\lhd}{\ensuremath{\mathcal{L}}}
-\newcommand{\T}{\ensuremath{T}}
-\renewcommand{\E}{\ensuremath{E}}
-
-\newcommand{\argmax}{\ensuremath{\operatorname*{arg\,max}}}
 \newcommand{\intd}{\ensuremath{\mathrm{\;d\,}}}
 
-\newcommand{\trans}[3]{\ensuremath{#1 \xrightarrow{#2} #3}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -61,7 +48,7 @@
 
 \begin{document}
 
-\title*{Ancestral population genomics with coalescent hidden Markov models}
+\title*{Ancestral population genomics with Jocx, a coalescent hidden Markov model}
 \author{Jade Yu Cheng and Thomas Mailund}
 \institute{Jade Yu Cheng \at FIXME
 	\email{name@email.address}
@@ -75,45 +62,52 @@
 
 Understanding how species form and diverge is a central topic of biology and by observing emerging species today we can understand many of the genetic and environmental processes involved. Through such observations we can understand the underlying forces that drive speciation, but in order to understand how specific speciations occurred in the past, and understand the specifics of how existing species formed, we must make inference from the signals these events have left behind. The study of fossils is a powerful approach here, but not the only avenue to study past speciations; the speciation processes leave fossils in the genome of the resulting species, and through what you might call genetic archaeology we can study past events from the signals they left behind.
 
-Over the last three decades several inference methods were developed to model speciation and estimate the timing of splits, the presence or absence of gene-flow during a split, and estimate population genetics parameters of the ancestral species, such as the effective population size. For a detailed review of these, focusing on the human/chimpanzee speciation, we refer to~\citet{Mailund:2014fyb}.
 
-Early methods considered short aligned segments and modelled how these would be different samples from the underlying coalescence process in the ancestral species~\cite{Takahata:1995kl, Innan:2006hc, Burgess:2008kf, Rannala:2003vt, Yang:2002wz, Yang:2006eu, Yang:2010fm, Becquet:2009hta, Chen:2001dka, Wall:2003vb}. Common for these is that recombination was not explicitly modelled, with the exception of the model of~\citet{Becquet:2009hta} that allows intra-locus recombination at a cost in computational complexity. The methods considered genomic regions sufficiently short that recombination was considered unlikely and sufficiently apart that the regions could be considered independent.
+The main objectives of the methods we describe in this chapter is to infer demographic parameters, $\Theta$, given genetic data, $D$: $\lhd(\Theta\,|\,D)=\Pr(D\,|\,\Theta)$. Here, we assume that $\Theta$ contains information such as effective population sizes, time points where population structure changes (populations split or admix), or migration rates between populations. We can connect data and demographics through coalescence theory \cite{Hein:2004ta}. This theory gives us a way to assign probability densities to genealogies, densities that depend on the demographic parameters, $f(G\,|\,\Theta)$. Then, if we know the underlying genealogy, we can assign probabilities to observed data using standard algorithms such as \citet{Felsenstein_1981} and get $\Pr(D\,|\,G,\Theta)$. Theoretically, we now simply need to integrate away the nusiance parameter $G$ to get the desired likelihood
+\begin{equation}
+	\label{eq:likelihood}
+	\lhd(\Theta\,|\,D) = \Pr(D\,|\,\Theta) 
+	= \int \Pr(D\,|\,G,\Theta) f(G\,|\,\Theta) \intd G .
+\end{equation}
 
-Sequencing technology, however, has progressed dramatically over the last decade and now multiple full genome sequences are readily available for many related species and constructing sequences for new species is affordable for even small research groups. To fully exploit such data, models will have to explicitly consider recombination. We have to move from ancestral population genetics to \emph{genomics}.
+In practise, however, the space of all possible genealogies prevents this beyond a small sample size of sequences and for any sizeable length of genetic material, and approximations are needed. The sequential Markov coalescent and coalescent hidden Markov models approximate the likelihood in two steps: assume that sites are independent given the genealogy, i.e.
+\begin{equation}
+  \Pr(D\,|\,G,\Theta) \approx
+  \prod_{i=1}^L \Pr(D_i\,|\,G_i,\Theta)
+\end{equation}
+where $L$ is the length of the sequence and $D_i$ is the data and $G_i$ the genealogy at site $i$, and assume that the dependency between genealogies is Markov:
+\begin{equation}
+  \label{eq:markov-genealogy}
+  f(G\,|\,\Theta) \approx
+  f(G_1\,|\,\Theta)\prod_{i=2}^{L}f(G_{i}\,|\,G_{i-1},\Theta)
+  .
+\end{equation}
+
+Both assumptions are known to be invalid, but simulation studies indicate that this model captures most important summary statistics from the coalescent \cite{McVean:2005hoa,Marjoram:2006hpa} and that it can be used to accurately infer parameters in various demographic models \cite{Mailund:2011dva,Mailund:2012ewa,Cheng:2015kia}. Because of the form the likelihood now gets,
+\begin{equation}
+  \label{eq:coalhmm-joint-probability}
+  f(D,G\,|\,\Theta) = 
+  	f(G_1\,|\,\Theta)
+  	\prod_{i=2}^{L}f(G_{i}\,|\,G_{i-1},\Theta)
+  	\prod_{i=1}^L \Pr(D_i\,|\,G_i,\Theta)
+  	,
+\end{equation}
+which is the form of a \emph{hidden Markov model}, we can compute the likelihood efficiently using the so-called \emph{Forward} algorithm \cite[chapter 3]{durbin1998biological}.
 
 
-\subsection{The sequential Markov coalescent and coalescent hidden Markov models}
-
-Models for ancestral population genetics are based on coalescence theory~\cite{Hein:2004ta} that describes the stochastic process of how lineages of a present day sample coalesce into common ancestors back in time. The outcome of this process, when both coalescence events and recombination events are considered, is called the \emph{ancestral recombination graph} or ARG. The coalescence process with recombination was originally described as a process running backward in time, but~\citet{Wiuf:1999gua} showed that it could also be modelled as a process running along a sequence alignment. This process, however, is computationally intractable for long sequences because it requires keeping track of all local gene trees along the sequence.
-
-Considering the coalescence process as a sequential process along a sequence alignment lead to two innovations for modelling long sequence alignments experiencing recombination: the \emph{sequential Markov coalescence} and \emph{coalescent hidden Markov models}; two ideas that while starting out from different ideas have now largely merged.
-
-The sequential Markov coalescence was introduced by~\citet{McVean:2005hoa} who considered a coalescence process where lineages are not allowed to coalesce unless they share ancestral material. They showed that this process would be Markov when considered as a sequential process and dubbed the process the sequential Markov coalescence, SMC. Because the model originated from restrictions on which lineages could coalesce, rather than an attempt to approximate the Wiuf \& Hein model as a Markov process, it does not allow two lineages resulting from a recombination to re-coalesce unless they have first coalesced with other lineages. Consequently, when there are few lineages a large fraction of the coalescence event that would be allowed in the coalescence process are not allowed in the SMC. This was amended by~\citet{Marjoram:2006hpa} in a model named SMC$^\prime$ that matches the SMC process except for explicitly allowing these back-coalescence events. This model was further extended to allow higher order Markov dependencies in the MaCS model by \citet{Chen:2009fga}. This early work on sequential Markov coalescence models focused on simulating sequence data and not on data analysis.
-
-Independently of the work on sequential Markov coalescent models we developed a model for inferring the speciation dates of the human-chimpanzee and human-gorilla splits in \citet{Hobolth:2007gza}. While this model was based on ideas from \citet{Wiuf:1999gua}, combined with ideas from \citet{Takahata:1995kl}, it did not explicitly model the coalescence process. Instead it simply specified a hidden Markov model with gene genealogies as hidden states and fitted the rate of changes in these to a sequence alignment. Parameters from the coalescence process were then inferred based on the fitted hidden Markov model parameters. The term \emph{coalescent hidden Markov model}, or CoalHMM, was coined in this paper.
-
-We later constructed a model that merges the coalescent hidden Markov model from \citet{Hobolth:2007gza} with the SMC model in \citet{Dutheil:2009dta}. This model was also applied to the human-chimpanzee and human-gorilla speciation and revealed very clearly that not allowing back-coalescences in the long time periods where all sequences are in isolated species would lead to a serious underestimation of the recombination rate.
-
-To alleviate this we developed a new model that uses continuous time Markov chains (CTMCs) to explicitly model all recombination and coalescence events possible for a pair of neighbouring nucleotides and built a CoalHMM from this in \citet{Mailund:2011dva}. As an added benefit, this model allowed us to infer parameters from a pair of sequences, where the previous methods requires three sequences and incomplete lineage sorting between them.
-
-Independent of this, Li \& Durbin developed a CoalHMM based on the SMC for pairs of sequences, the so-called pairwise sequential Markov coalescent model PSMC~\cite{Li:2011eza}, for inferring changing effective population sizes back in time. \citet{Paul:2010iba} and \citet{Paul:2011gva} developed a model combining the SMC with a conditional sampling approach to scale the data size beyond pairs, while \citet{Rasmussen:2014cqa} developed a sampling approach with the same aim.
-
-A number of models followed these, extending the models to consider gene-flow patterns~\cite{Steinrucken:2013kba,Mailund:2012ewa}, changing population sizes~\cite{Sheehan:2013iba,Schiffels:2014cua} or inference of recombination patters, and selection \cite{Munch:2014cba, Munch:2014cwa}, \cite{Dutheil:2015kl, Munch:2016dn}, and CoalHMMs have been used in a number of whole genome analyses \cite{Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga}.
-
-In this chapter we will present the theory underlying our approach to constructing coalescent hidden Markov models and present our current implementations of various models and how you can apply these to your own genomic analyses.\todo{update this}
-
-\section{The hidden Markov model approximation to the coalescent with recombination}
-
-The main objectives of the methods we describe in this chapter is to infer demographic parameters, $\Theta$, given genetic data, $D$: $\lhd(\Theta\,|\,D)$. 
+This efficiency has permitted us and others to apply this approximation to the coalescence to infer demographic parameters on whole genome data~\cite{Li:2011eza,Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga} in addition to inferring recombination patters \cite{Munch:2014cba,Munch:2014cwa} and scanning for signs of selection \cite{Dutheil:2015kl,Munch:2016dn}.
 
 
-Here, we assume that the genetic data is aligned sequences of a number of sampled genes.
+\todo[inline]{This is probably where we should describe that we only look at pairs and then use a composite likelihood}
 
+
+\todo[inline]{Update below}
+
+In this chapter we will present the theory underlying our approach to constructing coalescent hidden Markov models and present our current implementations of various models and how you can apply these to your own genomic analyses.
 
 
 
 \section{Using Jocx, a CoalHMM inference tool}
-\todo[inline]{This is probably where we should describe that we only look at pairs and then use a composite likelihood}
 \todo[inline]{Tutorial in how to use the software}
 
 \section{CoalHMM results (better title)}
