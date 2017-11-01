@@ -218,9 +218,13 @@ for all $g$. The \texttt{F} table has $N\times L$ entires and computing each rec
   \lhd(\Theta\,|\,\D) = \sum_{g} \mathtt{F}[g,L].
 \end{equation}
 
-Thus, to get a tractable approach to infer demographic parameters from genetic data under the coalescence with recombination, we only need to construct the three HMM parameters $\pi$, $\T$, and $\E$. As seen in \eqref{eq:pi-from-joint-prob} and \eqref{eq:transitions-from-joint-prob}, we can derive $\pi$ and $\T$ from joint probabilities of two genealogies, and as mentioned earlier, we can compute $\E$ from standard algorithms (once we have discretised time). The crux of deriving a CoalHMM is thus computing probabilities $\Pr(G_i,G_{i+1})$. We will show how to do this in three steps. First we show how to construct models that trace the ancestry of neighbouring nucleotides back in time. Such ancestries contain more information than just the neighbouring nucleotides, so we need to integrate information away, and we show how this can be done secondly. The models we build this way captures fixed demographic scenarios and we can only use them to infer parameters from such. To allow changes in the ancestry, such as populations splitting and merging, we need a way to combine the models, and we finish the story of how to create coalescence hidden Markov models by showing how this can be done.
+Thus, to get a tractable approach to infer demographic parameters from genetic data under the coalescence with recombination, we only need to construct the three HMM parameters $\pi$, $\T$, and $\E$. As seen in \eqref{eq:pi-from-joint-prob} and \eqref{eq:transitions-from-joint-prob}, we can derive $\pi$ and $\T$ from joint probabilities of two genealogies, and as mentioned earlier, we can compute $\E$ from standard algorithms (once we have discretised time).
 
-\section{The coalescent process and continuous time Markov chains}
+\section{Constructing CoalHMMs}
+
+The crux of deriving a CoalHMM is computing probabilities $\Pr(G_i,G_{i+1})$ in discretised time. We will show how to do this in three steps. First we show how to construct models that trace the ancestry of neighbouring nucleotides back in time. The models we build this way captures fixed demographic scenarios and we can only use them to infer parameters from such. To allow changes in the ancestry, such as populations splitting and merging, we need a way to combine the models, and we describe this secondly. The CTMCs we develop for the coalescence processes contain more information than is captured by genealogies, and the final step in constructing CoalHMMs involve integrating over this extra hidden information after discretising time.
+
+\subsection{The coalescent process and continuous time Markov chains}
 
 The sequential Markov coalescent and coalescent hidden Markov models aim to approximate the coalescent model with recombination in order to make analysis tractable. The coalescent model of population genetics describes the ancestry of a sample of observed genes and gives probabilities to all the possible genealogies that can explain the observation. The typical formulation of the model is as a continuous time Markov chain (CTMC) that describes how the sampled genes find common ancestors as we look further and further back in time. 
 
@@ -232,7 +236,7 @@ There is a rich theory for CTMCs so expressing systems in terms of these gives u
 
 Constructing a CTMC consists of specifying the rate matrix $Q$ and the initial probability vector $\pi(0)$. In most cases this is relatively straightforward, mathematically at least; explicitly specifying the rate matrix can be problematic when the state space is very large. When the state space is large it becomes necessary to automatically generate it and construct the rate matrix. In the remainder of this section, we describe how to automatically construct CTMCs capturing the coalescence process and how these can then be used to construct coalescent hidden Markov models.
 
-\subsection{A token game for constructing CTMCs}
+\subsubsection{A token game for constructing CTMCs}
 
 To define a continuous time Markov chain, you need to specify its rate matrix, $Q$, and initial state probabilities, $\pi(0)$. Doing this manually is straightforward for small systems, but infeasible once the state space of the CTMC grows beyond a few tens of states. When developing the CoalHMM in \citet{Mailund:2011dva}, it took us several tries to get it right, and we didn't manage completely until we automated it. The CTMC used in that model has 16 states. The CTMCs we use when constructing CoalHMMs are all constructed automatically from a demography specification, and in this section we explain one formal way of specifying CTMCs that we will use for the remainder of the chapter. The approach is based on \emph{Coloured Petri Nets}~\cite{Jensen:2013jg}, but simplified somewhat since we only need very simple models.
 
@@ -241,7 +245,7 @@ We construct CTMCs by playing a simple game. We imagine we have a bucket, and in
 Graphically, we represent the bucket as a circle with the tokens in it. The actual representation in an implementation will be as a set or multi-set, but this graphical representation makes the content of the bucket clearer. An example is shown in Fig.~\ref{fig:example-CPN} of a bucket containing four tokens, the numbers $1$ to $4$.
 
 \begin{figure}[h]
-\sidecaption[t]
+\sidecaption
 \includegraphics[scale=.45]{figures/example-CPN}
 \caption{Example token game that adds together numbers as long as the result is less than eight. The single transition picks up two tokens with rate $A$ and puts back a token that contains the sum of the two. The condition for applying the transition insists that this result must be less than eight.}
 \label{fig:example-CPN}
@@ -264,13 +268,13 @@ The final step of constructing the CTMC, getting the rate matrix $Q$ from this g
 
 
 
-\subsection{The coalescence process}
+\subsubsection{The coalescence process}
 
 The coalescence process \cite{Hein:2004ta} models the genealogy of a set of present day genes by tracking their ancestry back in time. It is constructed as a continuous time Markov chain that runs backwards in time. In its simplest form, there is a single possible transition, a \emph{coalescence} event, that takes two genetic lineages and merge them into one ancestral lineage. Any run of this CTMC from the initial state to a final state, where all present day genes have found their common ancestor, corresponds to a genealogy. Conversely, we can assign probability densities to all genealogies, since the probability of seeing any given genealogy is the same as the probability that the CTMC will have a run matching it.
 
 In the token game formulation of this process, we can represent genetic lineages as sets. Any genetic lineage of interest to us will be ancestral to one or more of the present day genes we are modelling, so we represent such lineages as the set of descendants. We start out with the genes in the bucket as singletons. The coalescence transition takes two lineages and merge them into their shared ancestral lineage---the new ancestral lineage is ancestor to both the descendants in the first lineage and the second, so it is the union of the two lineages. We therefore define the coalescence transition as \trans{n \oplus m}{C}{n \cup m}. An example, with three genes, is shown in Fig.~\ref{fig:coalescence-CPN}.
 
-\begin{figure}[t]
+\begin{figure}[h]
 \sidecaption[t]
 \includegraphics[scale=.25]{figures/coalescence-CPN}
 \caption{Coalescence token game and state space for a setup with three initial genes. Each path through the reachability graph from the initial state to the final state, the bucket containing $\{1,2,3\}$ correspond to a topology of the genealogy of three genes. These topologies are shown next to the middle node in these paths. In actual runs of the coalescence CTMC, branch length probabilities are determined by the stochasticity of the CTMC.}
@@ -279,17 +283,71 @@ In the token game formulation of this process, we can represent genetic lineages
 
 The coalescence rate $C$ is traditionally not a primary parameter of the coalescence process. Rather, it is defined via the so-called ``effective population size'', $2N_e$, or its mutation-scaled version $\theta=4 N_e \mu$, see \citet{Hein:2004ta}, where $C=2/\theta$. Within the CTMC framework we use in this chapter, however, it is more convenient to use $C$ as the primary unit and the effective population size as the derived.
 
+
+\subsubsection{Populations and migration}
+
+We can consider modelling a slightly more complex scenario, one with several populations and migration between them. We can model this by tagging lineages with the population they are currently in on the tokens we represent them by. The tokens will then contain pairs of populations combined with sets representing lineages. We will only allow coalescences between lineages in the same population, so the coalescence transition must be updated to \trans{(p,n) \oplus (q,m)}{C}{(p_1,n\cup m)} when $p = q$. We can migrate by changing the population of a token to another, so use the transition \trans{(p,n)}{M}{(q,n)} where $p\neq q$.
+
+Both these transitions assume the populations are symmetric---the coalescence transition assumes that the rate of coalescence is the same in all populations while the migration transition assumes that the migration rate between any pair of populations will be the same. This need not be the case, and by using different transitions we can introduce asymmetric migration, as shown in Fig.~\ref{fig:migration-coalescence-CPN}, where we have different rates for migration from a population 1 to a population 2 than from 2 to 1. We can do the same for modelling different coalescence rates in different populations, capturing that the populations might have different effective sizes, as shown in Fig.~\ref{fig:migration-coalescence-CPN-2} for two populations. Of course, these can be combined to have both asymmetric migration and different coalescence rates in different populations.
+
+
+\begin{figure}[h]
+\sidecaption
+\includegraphics[scale=.30]{figures/migration-coalescence-CPN}
+\caption{Token game for a coalescence process with two populations and (potentially asymmetric) migration between them.}
+\label{fig:migration-coalescence-CPN}
+\end{figure}
+
+\begin{figure}[h]
+\sidecaption
+\includegraphics[scale=.30]{figures/migration-coalescence-CPN-2}
+\caption{Token game for a coalescence process with two populations with symmetric migration between them but possibly different coalescence rates, i.e.\ different effective population sizes.}
+\label{fig:migration-coalescence-CPN-2}
+\end{figure}
+
+Regardless of whether we use symmetric rates or not, the state space for the system with two populations and two samples will be the graph shown in Fig.~\ref{fig:migration-coalescence-state-space}. In this figure, the edges are labelled with rates assuming both asymmetric migration and different coalescence rates in the two populations. The separation between the upper two nodes and the lower four is caused by coalescence events. Migration events are reversible in the sense that you can migrate back and end up in the same state as before the event (at least when none of the migration rates are zero). Nodes connected only by migration transitions form what is known as \emph{strongly connected components}---subsets of the graph where all nodes are reachable from all others. Coalescence transitions, however, are not reversible. Whenever we move through a coalescence edge we end up in a part of the state space from which we can never reach the state we were in before the coalescence. This state space has two strongly connected components, the two top nodes and the four bottom nodes.
+
+\begin{figure}[h]
+\sidecaption
+\includegraphics[scale=.30]{figures/migration-coalescence-state-space}
+\caption{State space for the coalescence with population structure with two populations and two samples. We have changed the notation for the bucket slightly to improve readability, and tag lineages with populations by putting them to the left or to the right inside the bucket. We also show singleton sets as just their single element rather than in curly brackets.}
+\label{fig:migration-coalescence-state-space}
+\end{figure}
+
+Figure~\ref{fig:migration-state-space-3} shows the state space graph for two populations and three initial samples. The space is substantially larger than for two samples---this is a general problem caused by combinatorial complexity known as the \emph{state space explosion} problem and is limiting problem for the methodology we construct here. However, we want you to notice the structure of strongly connected components and we have highlighted the five components in this graph using grey boxes.
+
+\begin{figure}[t]
+\sidecaption
+\includegraphics[scale=.20]{figures/migration-state-space-3}
+\caption{State space for the coalescence with population structure with two populations and three samples. To ease readability we do not show edge labels and we show the reversible migration events as double-arrowed edges instead of two edges. Migration transitions are shown as dashed lines and coalescence transitions as solid lines.}
+\label{fig:migration-state-space-3}
+\end{figure}
+
+We can construct a derived graph, the \emph{strongly connected component graph}, from such a state space. We use as nodes the strongly connected components in the original graph and we add an edge in the new graph between two components if there is an edge in the original graph going from a node in the first component to a node in the second. The strongly connected component graph for the graph in Fig.~\ref{fig:migration-state-space-3} is shown in Fig.~\ref{fig:migration-SCC-graph}. Notice that the graph is identical to the state space for three samples when we didn't have any migration (see Fig.~\ref{fig:coalescence-CPN}) and notice that genealogy topologies correspond to paths in this graph.
+
+\begin{figure}[h]
+\sidecaption
+\includegraphics[scale=.20]{figures/migration-SCC-graph}
+\caption{The strongly connected component graph for the migration system with three samples. Strongly connected components from the initial graph are shown as square boxes. Corresponding genealogies are shown next to the middle node of paths going from the initial component to the terminal component.}
+\label{fig:migration-SCC-graph}
+\end{figure}
+
+Since the migration system contains reversible transitions, there will be events in a trace of the CTMC that will not be captured by the genealogy. At least not in the topology; we would expect the events to change the distribution of branch lengths but they would not change the topology. As long as the only irreversible transitions we have are coalescence transitions, however, we will have a one-to-one correspondence between genealogy topologies and paths in the strongly connected component graph from the initial component to the terminal component.
+
+
+\subsubsection{The coalescent with recombination}
+
+
+
+
+
+\subsubsection{Genealogies and CTMC traces}
+
 \todo[inline]{Everything after this point needs to be rewritten to match the graphical language of CTMC construction}
 
 
 
-\subsection{The coalescent with recombination}
-
-
-
-
-
-\section{Constructing coalescent hidden Markov models}
+\subsection{Constructing coalescent hidden Markov models}
 
 \todo[inline]{Update this intro. I stole from it for an earlier section}
 
@@ -444,7 +502,7 @@ and the sum and products can be rearranged---similar to how it is done for hidde
 While this framework might seem complicated, from \eqref{eq:ctmc-probability-of-joint-genealogies} it should be obvious that we can automatically derive a CoalHMM as long as we have the rate matrix of a CTMC modelling the demography of interest, $Q$, and a discretisation of time $(\tau_1,\ldots,\tau_m)$.
 
 
-\section{Modelling demography as sequences of CTMCs}
+\subsection{Modelling demography as sequences of CTMCs}
 
 To actually capture demographies, we must make two slight changes to \eqref{eq:ctmc-probability-of-joint-genealogies}; the first allows us to vary parameters of the demography for different time periods and the second allows us to model population changes, such as moving from isolation periods to migration periods, to split populations into descendant populations, or model admixture events. Equation \eqref{eq:ctmc-probability-of-joint-genealogies} uses the same rate matrix in all time intervals, but this assumes no demographic changes. The first modification we do is to associate each time interval with its own rate matrix:
 \begin{equation}
