@@ -60,6 +60,9 @@
 
 \section{Introduction}
 
+\todo[inline]{Stuff we need to include: 1) Which models can Jocx analyse and how? 2) Description of the data we put on GitHub, 3) Simulation results for the models we present, showing how Jocx does on those---probably with scripts (on GitHub) for making the plots}
+
+
 Understanding how species form and diverge is a central topic of biology and by observing emerging species today we can understand many of the genetic and environmental processes involved. Through such observations we can understand the underlying forces that drive speciation, but in order to understand how specific speciations occurred in the past, and understand the specifics of how existing species formed, we must make inference from the signals these events have left behind. The study of fossils is a powerful approach here, but not the only avenue to study past speciations; the speciation processes leave fossils in the genome of the resulting species, and through what you might call genetic archaeology we can study past events from the signals they left behind.
 
 
@@ -70,7 +73,7 @@ The main objectives of the methods we describe in this chapter is to infer demog
 	= \int \Pr(D\,|\,G,\Theta) f(G\,|\,\Theta) \intd G .
 \end{equation}
 
-In practise, however, the space of all possible genealogies prevents this beyond a small sample size of sequences and for any sizeable length of genetic material, and approximations are needed. The sequential Markov coalescent and coalescent hidden Markov models approximate the likelihood in two steps: assume that sites are independent given the genealogy, i.e.
+In practise, however, the space of all possible genealogies prevents this beyond a small sample size of sequences and for any sizeable length of genetic material. Approximations are needed, and \emph{the sequential Markov coalescent} and \emph{coalescent hidden Markov models} approximate the likelihood in two steps: assume that sites are independent given the genealogy, i.e.
 \begin{equation}
   \Pr(D\,|\,G,\Theta) \approx
   \prod_{i=1}^L \Pr(D_i\,|\,G_i,\Theta)
@@ -97,21 +100,25 @@ which is the form of a \emph{hidden Markov model}, we can compute the likelihood
 
 This efficiency has permitted us and others to apply this approximation to the coalescence to infer demographic parameters on whole genome data~\cite{Li:2011eza,Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga} in addition to inferring recombination patters \cite{Munch:2014cba,Munch:2014cwa} and scanning for signs of selection \cite{Dutheil:2015kl,Munch:2016dn}.
 
+We have created a theoretical framework for constructing coalescent hidden Markov models from demographic specifications \cite{Mailund:2011dva,Mailund:2012ewa,Mailund2012,Cheng:2015kia} and used it to implement various models in the software package Jocx, available at 
 
-\todo[inline]{This is probably where we should describe that we only look at pairs and then use a composite likelihood}
+{\small{}\begin{verbatim}
+  https://github.com/jade-cheng/Jocx.git
+\end{verbatim}}
+
+The model creates hidden Markov models for pairs of sequences and does so for all pairs of sequences used in the demographic model. It then combines the likelihoods of the HMMs for each pair into a composite likelihood that we use to estimate parameters.
+
+Jocx executes CoalHMM by specifying a model and an optimiser. It uses sequence alignments in the format of ``ziphmm'' directories, which is also prepared by Jocx. The program prints to standard output the progression of the estimated parameters and the corresponding log likelihood. The source package contains a set of Python files, and it requires no installation. In the remainder of this chapter, we describe how to apply Jocx to sequence data and how to interpret the results.
 
 
-\todo[inline]{Update below}
 
-In this chapter we will present the theory underlying our approach to constructing coalescent hidden Markov models and present our current implementations of various models and how you can apply these to your own genomic analyses.
+\section{Preparing data}
 
+\section{Running Jocx}
 
+\section{Interpreting results}
 
-\section{Using Jocx, a CoalHMM inference tool}
-\todo[inline]{Tutorial in how to use the software}
-
-\section{CoalHMM results (better title)}
-\todo[inline]{Some simulation results}
+\section{Conclusions}
 
 
 \bibliographystyle{spbasic}
