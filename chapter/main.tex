@@ -299,7 +299,7 @@ ziphmm_admix23-6hmm_a1_a2  ziphmm_admix23-6hmm_a1_c1  ziphmm_admix23-6hmm_b1_c1
 ziphmm_admix23-6hmm_a1_b1  ziphmm_admix23-6hmm_b1_b2  ziphmm_admix23-6hmm_c1_c2
 \end{verbatim}}
 
-\section{Inferring parameters}
+\subsection{Inferring parameters}
 
 To infer parameters, we maximise the model likelihood. Jocx implements three optimisation subroutines, Nelder-Mead (NM), Genetic Algorithms (GA), and Particle Swarm Optimization (PSO). After preparing the ZipHMM directories, user can run the CoalHMM to maximise the likelihood using one of these three algorithms using the \texttt{run} command.
 
@@ -327,7 +327,7 @@ A   B
 
 In this model, we infer three parameters: the population split time, \texttt{tau}, the coalescent rate, \texttt{coal\_rate}, and the recombination rate, \texttt{recomb\_rate}. In this model, populations are assumed to have the same coalescent rate, which is why there is only one parameter for this.
 
-\subsection{NM}
+\subsubsection{NM}
 
 NM was introduced by John Nelder and Roger Mead in 1965 \cite{nelder1965simplex} as a technique to minimise a function in a many-dimensional space. This method uses several algorithm coefficients to determine the amount of effect of possible actions.
 
@@ -354,7 +354,7 @@ Optimization terminated successfully.
 
 In the output of NM's execution, we have a final report of whether or not the execution was successful together with the optimal solution. It is possible for the optimiser to fail for various reasons, the number of parameters being a major cause of this. If the parameter space is too large, the Nelder-Mead optimiser often fail and one of the other optimisers will do better.
 
-\subsection{GA}
+\subsubsection{GA}
 
 GA was introduced by John Holland first introduced in the 1970s \cite{holland1992genetic}. The idea is to encode each solution as a chromosome-like data structure and operate on them through actions analogous to genetic alterations, which usually involves selection, recombination, and mutation. For each type of alteration, people have developed different techniques.
 
@@ -410,7 +410,7 @@ $ Jocx.py run . iso ga 0.0001 1000 0.1
 
 In the output of GA's execution, we have multiple generations of solutions, and multiple solutions per generation. Solutions in each generation is ordered by the fitness, i.e. best solution is at the top. The final solution is, therefore, the first solution in the last generation.
 
-\subsection{PSO}
+\subsubsection{PSO}
 
 PSO was introduced by Eberhart and Kennedy in 1995 \cite{eberhart1995new} as an optimisation technique relying on stochastic processes, similar to GA. As its name implies, each individual solution mimics a particle in a swarm. Each particle holds a velocity and keeps track of the best positions it has experienced and best position the warm has experienced. The former encapsulates the social influence, i.e. a force pulling towards the swarm's best. The latter encapsulates the cognitive influence, i.e. a force pulling towards the particle's best. Both forces act on the velocity and drive the particle through a hyper parameter space.
 
