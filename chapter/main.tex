@@ -26,6 +26,7 @@
 \usepackage[bottom]{footmisc}% places footnotes at page bottom
 
 \usepackage[sort&compress,numbers]{natbib}
+\usepackage{subfig}
 \usepackage{todonotes}
 
 %% macros for the manuscript.... %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50,8 +51,7 @@
 
 \title*{Ancestral population genomics with Jocx, a coalescent hidden Markov model}
 \author{Jade Yu Cheng and Thomas Mailund}
-\institute{Jade Yu Cheng \at FIXME
-	\email{name@email.address}
+\institute{Jade Yu Cheng \at Bioinformatics Research Centre, Aarhus University \email{ycheng@birc.au.dk}
 \and Thomas Mailund \at Bioinformatics Research Centre, Aarhus University \email{mailund@birc.au.dk}}
 \maketitle
 
@@ -59,9 +59,6 @@
 
 
 \section{Introduction}
-
-\todo[inline]{Stuff we need to include: 1) Which models can Jocx analyse and how? 2) Description of the data we put on GitHub, 3) Simulation results for the models we present, showing how Jocx does on those---probably with scripts (on GitHub) for making the plots}
-
 
 Understanding how species form and diverge is a central topic of biology and by observing emerging species today we can understand many of the genetic and environmental processes involved. Through such observations we can understand the underlying forces that drive speciation, but in order to understand how specific speciations occurred in the past, and understand the specifics of how existing species formed, we must make inference from the signals these events have left behind. The study of fossils is a powerful approach here, but not the only avenue to study past speciations; the speciation processes leave fossils in the genome of the resulting species, and through what you might call genetic archaeology we can study past events from the signals they left behind.
 
@@ -108,25 +105,23 @@ We have created a theoretical framework for constructing coalescent hidden Marko
 https://github.com/jade-cheng/Jocx.git
 \end{verbatim}}
 
-The model creates hidden Markov models for pairs of sequences and does so for all pairs of sequences used in the demographic model. It then combines the likelihoods of the HMMs for each pair into a composite likelihood that we use to estimate parameters.
-
-In brief, a full analysis looks something like the following.  In the remainder of this chapter, we describe in detail how to apply Jocx to sequence data and how to interpret the results.
+Jocx handles the state space explosion problem of dealing with many sequences by creating hidden Markov models for all \emph{pairs} of sequences and then combining these into a composite likelihood when estimating parameters. In brief, a full analysis looks something like the following.  In the remainder of this chapter, we describe in detail how to apply Jocx to sequence data and how to interpret the results.
 
  {\scriptsize{}\begin{verbatim}
 Jocx.py init . iso a.fasta b.fasta
 Jocx.py run . iso nm 0.0001 1000 0.1
 \end{verbatim}}
 
-Jocx executes CoalHMM by specifying a model and an optimiser. It uses sequence alignments in the format of ``ziphmm'' directories, which is also prepared by Jocx. The program prints to standard output the progression of the estimated parameters and the corresponding log likelihood. The source package contains a set of Python files, and it requires no installation.
+Jocx executes CoalHMMs by specifying a model and an optimiser. It uses sequence alignments in the format of ``ziphmm'' directories, which is also prepared by Jocx. The program prints to standard output the progression of the estimated parameters and the corresponding log likelihood. The source package contains a set of Python files, and it requires no installation.
 
 
 \subsection{Preparing data}
 
 Jocx takes two or more aligned sequences as input; the number of sequence pairs depends on the CoalHMM model specified for a particular execution. We will discuss CoalHMM model specification later. For example, for inference in a two-population isolation scenario~\cite{Mailund:2011dva}, we need a minimal of one pair of aligned sequences, one from each of the two population. The sequences form an alignment so they need to match in length and names.
 
-\todo{I don't understand the use of capital letters in the example...and isn't b.2 one longer than it should be? Also, maybe make clearer what you mean by "name"---I know you mean the headers in the FASTA files, but how are they used by the software? Jade: Below}
+\todo{I don't understand the use of capital letters in the example...and isn't b.2 one longer than it should be? Also, maybe make clearer what you mean by "name"---I know you mean the headers in the FASTA files, but how are they used by the software? Jade: Below --- TM: I don't see where you explain this.}
 
-In the following example, sequence \texttt{a} and sequence \texttt{a} form an alignment.  Each sequence may have multiple data pieces, e.g. 1 and 2 in this example.  The names for these data pieces need to be consistent between the two sequences.  In the software we have the data-preparation step and model-inference step.  In the data-preparation step, we supply FASTA sequences by providing their file names, e.g \texttt{a.fasta} and \texttt{b.fasta}.
+In the following example, sequence \texttt{a} and sequence \texttt{b} form an alignment.  Each sequence may have multiple data segments, e.g. 1 and 2 in this example.  The names for these data segments need to be consistent between the two sequences.  In the software we have the data-preparation step and model-inference step.  In the data-preparation step, we supply Fasta sequences by providing their file names, e.g \texttt{a.fasta} and \texttt{b.fasta}.
 
  {\scriptsize{}\begin{verbatim}
 $ ls
@@ -158,13 +153,12 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaTaaaaaaaaaTaaaaa
 \end{verbatim}}
 
 
-We use the ZipHMM framework~\cite{Sand:2013bia} to calculate likelihoods, which in previous experiments we have found that ZipHMM gives us one or two orders of magnitude speedup in full genome analyses. To use ZipHMM in Jocx, we must preprocess sequence files. The preprocessing step is customised to each demographic model and is done using the
+We use the ZipHMM framework~\cite{Sand:2013bia} to calculate likelihoods---in previous experiments we have found that ZipHMM gives us one or two orders of magnitude speedup in full genome analyses. To use ZipHMM in Jocx, we must preprocess the sequence files. The preprocessing step is customised to each demographic model and is done using the
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py init
 \end{verbatim}}
+\noindent
 command. This command takes a variable number of arguments, depending on how many sequences are needed for the demographic model we intend to use. The first two arguments are the the directory in which to put the preprocessed alignment and the demographic model to use. The sequences used for the alignment, the number of which depends on the model, must be provided as the remaining arguments. In the aforementioned two-population isolation scenario, the model \texttt{iso}, we need to process two aligned sequences, so the \texttt{init} command will take four arguments in total. To create a pairwise alignment for the isolation model, we would execute the following command:
-
-\todo{Should we add a script to the chapter GitHub repository that goes through a full analysis of the isolation model that people can use to follow this tutorial? Jade: Added to the opening section}
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py init . iso a.fasta b.fasta
@@ -183,9 +177,7 @@ $ Jocx.py init . iso a.fasta b.fasta
 # Creating 5-state alignment in directory: ./ziphmm_iso_a_b/2.ziphmm
 \end{verbatim}}
 
-The result of the \texttt{init} command is the directory \texttt{ziphmm\_iso\_a\_b} which contains information about the alignment of \texttt{a.fasta} and \texttt{b.fasta} in a format that ZipHMM can use to efficiently analyse the isolation model.  Each FASTA data piece forms its own ZipHMM subdirectory.  In the above example, we have two data pieces, named 1 and 2, so we have two ZipHMM subdiretories.
-
-\todo{Explain the 1 and 2 in here... Jade: Above}
+The result of the \texttt{init} command is the directory \texttt{ziphmm\_iso\_a\_b} that contains information about the alignment of \texttt{a.fasta} and \texttt{b.fasta} in a format that ZipHMM can use to efficiently analyse the isolation model.  Each Fasta data piece forms its own ZipHMM subdirectory.  In the above example, we have two data pieces, named 1 and 2, so we have two ZipHMM subdiretories.
 
  {\scriptsize{}\begin{verbatim}
 $ ls
@@ -223,26 +215,26 @@ A   B
 :
 \end{verbatim}}
 
-For each model the tool implements, the \texttt{--help} command will show an ASCII image of the model, annotated with the parameters of the model and with leaves labelled by populations. Below the image, the parameters are listed in the order they will be output when optimising the model, followed by the sequences in the order they must be provided to the \texttt{init} command when creating the ZipHMM file.
+For each model the tool implements, the \texttt{--help} command will show an ASCII image of the model, annotated with the parameters of the model and with leaves labelled by populations. Below the image, the parameters are listed in the order they will be output when optimising the model, followed by the sequences in the order they must be provided to the \texttt{init} command when creating the ZipHMM file. Finally, the help lists the pairs of sequences that will be used in the composite likelihood in the list of ``groups''. When initialising a sequence alignment, you will get a ZipHMM directory per group.
 
 The two-population isolation demographic model is symmetric, so the order of input Fasta sequences does not matter. This is not always the case. For example, in a three-population admix model, shown below, the roles the populations take are different. Population C is admixed, and it's formed from ancestral siblings of the two source populations, A and B. The order of input Fasta sequences, therefore, needs to match.
 
-\todo{Where do the buddy/greedy names come from? That should probably be explained. Jade: Below}
+\todo{Where do the buddy/greedy names come from? That should probably be explained. Jade: Below --- TM: I meant, why are they \emph{named} that way? why ``greedy'' and ``buddy''?}
 
-In this model we have 5 time unknown durations to be estimated, they are three-population isolation time (\texttt{iso\_time}), two durations where the admixed population merges with each of the two source populations (\texttt{buddy23\_time\_1a}, \texttt{buddy23\_time\_2a}), and finally the duration before all populations find their common ancestry for the first population (greedy1\_time\_1a).  The last unkown duration can be calculated: \texttt{greedy1\_time\_2a = greedy1\_time\_1a + buddy23\_time\_1a - buddy23\_time\_2a}.
+In this model we have 5 time unknown durations to be estimated, they are three-population isolation time (\texttt{iso\_time}), two durations where the admixed population merges with each of the two source populations (\texttt{buddy23\_time\_1a}, \texttt{buddy23\_time\_2a}), and finally the duration before all populations find their common ancestry for the first population (greedy1\_time\_1a).  The last unknown duration can be calculated: \texttt{greedy1\_time\_2a = greedy1\_time\_1a + buddy23\_time\_1a - buddy23\_time\_2a}.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py --help
 :
 THREE POP ADMIX 2 3 MODEL (admix23)
-                *
-               / \     greedy1_time_1a
+                  *
+                 / \     greedy1_time_1a
 buddy23_time_1a /\  \
-             /  \_/\   buddy23_time_2a
- admix_prop /  <-|  \  iso_time
-           A     C   B
+               /  \_/\   buddy23_time_2a
+ admix_prop   /  <-|  \  iso_time
+             A     C   B
 
-7 params -> iso_time,        buddy23_time_1,
+7 params -> iso_time, buddy23_time_1,
           buddy23_time_2, greedy1_time_1,
           coal_rate, recomb_rate, admix_prop
 3 seqs   -> A, B, C
@@ -307,12 +299,9 @@ ziphmm_admix23-6hmm_a1_a2  ziphmm_admix23-6hmm_a1_c1  ziphmm_admix23-6hmm_b1_c1
 ziphmm_admix23-6hmm_a1_b1  ziphmm_admix23-6hmm_b1_b2  ziphmm_admix23-6hmm_c1_c2
 \end{verbatim}}
 
-\todo[inline]{Explain what the groups line tells us. Jade: Below}
-The first directory \texttt{ziphmm\_admix23\-6hmm\_a1\_a2} encodes the alignment from a1.fasta and a2.fasta, two sequences from the first population.  Same goes for the other directory and their names.
-
 \section{Inferring parameters}
 
-To infer parameters, we maximise the model likelihood. Jocx implements three optimisation subroutines, Nelder-Mead (NM), Genetic Algorithms (GA), and Particle Swarm Optimization (PSO). After preparing the ZipHMM directories, user can run the CoalHMM to maximise the likelihood using one of these three algorithms using the `run` command.
+To infer parameters, we maximise the model likelihood. Jocx implements three optimisation subroutines, Nelder-Mead (NM), Genetic Algorithms (GA), and Particle Swarm Optimization (PSO). After preparing the ZipHMM directories, user can run the CoalHMM to maximise the likelihood using one of these three algorithms using the \texttt{run} command.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso nm 0.0001 1000 0.1
@@ -320,9 +309,7 @@ $ Jocx.py run . iso nm 0.0001 1000 0.1
 
 The first argument of this command, like for the \texttt{init} command, is the directory where the ZipHMM preprocessed data is found. The next argument is the demographic model. If we preprocessed the ZipHMM data with the \texttt{iso} model, we can use \texttt{iso} here to fit that model. The third argument is the optimisation algorithm, one of \texttt{nm}, \texttt{ga}, and \texttt{pso}.
 
-Following the optimiser option,
-\todo{This is optionally, right? Jade: The initial values have to be provided.}
-are the initialization values for the optimisation. These arguments should match the number and order of parameters given by the \texttt{--help} command. In the \texttt{iso} model, for example, the parameters are these:
+Following the optimiser option are the initialisation values for the optimisation. These arguments should match the number and order of parameters given by the \texttt{--help} command. In the \texttt{iso} model, for example, the parameters are these:
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py --help
@@ -338,15 +325,11 @@ A   B
 :
 \end{verbatim}}
 
-In this model, we infer three parameters: the population split time, \texttt{tau}, the coalescent rate, \texttt{coal\_rate}, and the recombination rate, \texttt{recomb\_rate}. Populations are modelled to have the same coalescent rate which is why there is only one parameter for this. If you provide initial values for these parameters, they must be provided in this order.
+In this model, we infer three parameters: the population split time, \texttt{tau}, the coalescent rate, \texttt{coal\_rate}, and the recombination rate, \texttt{recomb\_rate}. In this model, populations are assumed to have the same coalescent rate, which is why there is only one parameter for this.
 
 \subsection{NM}
 
-NM was introduced by John Nelder and Roger Mead in 1965 \cite{nelder1965simplex} \todo{update reference. Jade: Updated}\  as a technique to minimise a function in a many-dimensional space. This method uses several algorithm coefficients to determine the amount of effect of possible actions.
-
-% They are the reflection coefficient $r$, the expansion coefficient $c$, the contraction coefficient $g$, and the shrinkage coefficient $s$. Standard values recommended in [ref(thesis3)]\todo{Update reference}\ are $r = 1$, $c = 2$, $g = 1/2$, and $s = 1/2$.
-
-\todo{Unless these are options the use can give Jocx, I don't think we should mention these algorithmic parameters here. Jade: Removed}
+NM was introduced by John Nelder and Roger Mead in 1965 \cite{nelder1965simplex} as a technique to minimise a function in a many-dimensional space. This method uses several algorithm coefficients to determine the amount of effect of possible actions.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso nm 0.0001 1000 0.1
@@ -373,7 +356,7 @@ In the output of NM's execution, we have a final report of whether or not the ex
 
 \subsection{GA}
 
-GA was introduced by John Holland first introduced in the 1970s \cite{holland1992genetic}.\todo{Update reference. Jade: Updated}\ The idea is to encode each solution as a chromosome-like data structure and operate on them through actions analogous to genetic alterations, which usually involves selection, recombination, and mutation. For each type of alteration, people have developed different techniques.
+GA was introduced by John Holland first introduced in the 1970s \cite{holland1992genetic}. The idea is to encode each solution as a chromosome-like data structure and operate on them through actions analogous to genetic alterations, which usually involves selection, recombination, and mutation. For each type of alteration, people have developed different techniques.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso ga 0.0001 1000 0.1
@@ -402,7 +385,7 @@ $ Jocx.py run . iso ga 0.0001 1000 0.1
 # min_fitness     = -10.7962322739
 # max_fitness     = -0.613544122419
 #
-# gen idv       fitness      param0         param1      param2
+# gen idv     fitness      param0         param1      param2
   1   1   -0.61354412  0.00002825  6305.95175380  0.04139445
   1   2   -1.38710619  0.00004282  2182.61708962  0.03027973
   1   3   -4.45085424  0.00001133   254.73764392  0.01081756
@@ -415,7 +398,7 @@ $ Jocx.py run . iso ga 0.0001 1000 0.1
 # min_fitness     = -10.5697879572
 # max_fitness     = -0.613544122419
 #
-# gen idv       fitness      param0         param1      param2
+# gen idv     fitness      param0         param1      param2
   2   1   -0.61354412  0.00002825  6305.95175380  0.04139445
   2   2   -0.61382451  0.00002825  6305.95175380  0.13757425
   2   3   -6.89850999  0.00002825   116.84983427  0.14110664
@@ -429,7 +412,7 @@ In the output of GA's execution, we have multiple generations of solutions, and 
 
 \subsection{PSO}
 
-PSO was introduced by Eberhart and Kennedy in 1995 \cite{eberhart1995new} \todo{Update reference. Jade: Updated}\ as an optimisation technique relying on stochastic processes, similar to GA. As its name implies, each individual solution mimics a particle in a swarm. Each particle holds a velocity and keeps track of the best positions it has experienced and best position the warm has experienced. The former encapsulates the social influence, i.e. a force pulling towards the swarm's best. The latter encapsulates the cognitive influence, i.e. a force pulling towards the particle's best. Both forces act on the velocity and drive the particle through a hyper parameter space.
+PSO was introduced by Eberhart and Kennedy in 1995 \cite{eberhart1995new} as an optimisation technique relying on stochastic processes, similar to GA. As its name implies, each individual solution mimics a particle in a swarm. Each particle holds a velocity and keeps track of the best positions it has experienced and best position the warm has experienced. The former encapsulates the social influence, i.e. a force pulling towards the swarm's best. The latter encapsulates the cognitive influence, i.e. a force pulling towards the particle's best. Both forces act on the velocity and drive the particle through a hyper parameter space.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso pso 0.0001 1000 0.1
@@ -490,11 +473,9 @@ $ Jocx.py run . iso pso 0.0001 1000 0.1
 In the output of the PSO's execution, we have multiple generations and multiple particles (solutions) per generation. Each particle contains two sets of solutions, the current solution and the best solution that this particle has encountered throughout the PSO's execution. The latter is never worse than the former. Similar to GA, each generation is ordered by the particles' fitness. The final solution is, therefore, the second solution of the first particle in the last generation.
 
 
-\section{Simulation, execution, and result summarization}
+\section{Simulation, execution, and result summarisation}
 
-\todo[inline]{Here, we can have a section where we show how to extract the ``final'' solution from the three optimisers on a run of the isolation model that matches the example given above. We can then supplement that with some graphs of simulation results --- or, which might be better, we could discuss how to bootstrap and show bootstrap results for a single data set. We should do the same with a more complicated model as well, just to show that we can handle those. The simplest admixture model, perhaps.}
-
-In this section, we will use a simulation experiment to show how to exercise a full analysis and extract the final solution.  We will use the software fastSIMCOAL2 \cite{excoffier2013robust} to simulate sequences given demographic parameters, and we will use the two-population isolation model for the example.  All scripts and input files used here can be found on GitHub.
+In this section, we will use a simulation experiment to show how to perform a full analysis and extract the final solution.  We will use the software fastSIMCOAL2 \cite{excoffier2013robust} to simulate sequences under given demographic parameters, and we will use the two-population isolation model. All scripts and input files used here can be found on GitHub.
 
 We execute the following command to generate variable sites of a two-sequence alignment.
 
@@ -530,7 +511,7 @@ $ cat input.par
     DNA 8000000 0.00000001 0.00000002 0.33
 \end{verbatim}}
 
-This simulation input file correspond to the following demography and model parameters.  The converted parameters are to be recovered by Jocx through CoalHMM model-based inference.  The historical event line contains 7 parameters.  They are: the time of event in generation, source population id, destination population id, the portion that migrated in this event, the new population size of the source population, the new growth rate, and the new migration matrix to use after this event.  The last line contains 5 parameters.  They are: the type of data, the size of simulated sequence, the recombination rate, and the migration rate.
+This simulation input file correspond to the following demography and model parameters.  Our goal is to recover these parameters through CoalHMM model-based inference.  The historical event line contains 7 parameters.  They are: the time of the event (in generations), source population id, destination population id, the proportion of a population that migrated in this event, the new population size of the source population, the new growth rate, and the new migration matrix to use after this event.  The last line contains 5 parameters.  They are: the type of data, the size of simulated sequence, the recombination rate, and the migration rate.
 
  {\scriptsize{}\begin{verbatim}
 ISOLATION MODEL
@@ -563,7 +544,6 @@ The fist file \texttt{input\_1.arb} lists the file paths and names of the genera
 
  {\scriptsize{}\begin{verbatim}
 $ less -S ./input/input_1_1.arp
-[jade@fe1 tmp]$ less -S ./input/input_1_1.arp
 
 #Arlequin input file written by the simulation program fastsimcoal2
 
@@ -612,13 +592,13 @@ $ less -S ./input/input_1_1.arp
         }
 \end{verbatim}}
 
-We use script \texttt{arlequin2fasta.py} to convert the above Arlequin alignment into FASTA files.  Since the Arlequin file contains only the variable sits, we need to specify the total length of the simulated sequence, which should match the simulation parameter in the input file \texttt{intput.par}, e.g. 8000000 in this example.
+We use the script \texttt{arlequin2fasta.py} to convert the above Arlequin alignment into Fasta files.  Since the Arlequin file contains only the variable sites, we need to specify the total length of the simulated sequence, which should match the simulation parameter in the input file \texttt{intput.par}, e.g.\ 8000000 in this example.
 
  {\scriptsize{}\begin{verbatim}
 $ ./arlequin2fasta.py input/input_1_1.arp 8000000
 \end{verbatim}}
 
-This creates two FASTA sequences for the pairwise alignment, and they are ready for Jocx's analysis.
+This creates two Fasta sequences for the pairwise alignment, and they are ready for Jocx's analysis.
 
  {\scriptsize{}\begin{verbatim}
 $ ls
@@ -631,7 +611,7 @@ input  input.par
 input_1_1-sample_1-1_1.fasta  input_1_1-sample_2-2_1.fasta
 \end{verbatim}}
 
-Analysis using Jocx follows a two-step procedure as described in earlier sections.  We first prepare the ZipHMM data directory using the `init` command and then infer parameters using the `run` command.  The following commands conduct a full analysis, and it tests all three optimization options using 10 independent executions per optimizer.
+Analysis using Jocx follows a two-step procedure as described earlier.  We first prepare the ZipHMM data directory using the \texttt{init} command and then infer parameters using the \texttt{run} command.  The following commands conduct a full analysis, and it tests all three optimisation options using 10 independent executions per optimiser.
 
 {\scriptsize{}\begin{verbatim}
 Jocx.py init . iso \
@@ -651,7 +631,7 @@ Jocx.py run . iso nm  0.0001 1000 0.1 > nm-1.stdout
 Jocx.py run . iso nm  0.0001 1000 0.1 > nm-9.stdout
 \end{verbatim}}
 
-Upon completion, we receive 10 sets of parameter estimates per optimization method.  The format of the stand output, which contains the inference results, is different for each optimization method.  We can use the following commands to summarize and plot the outcome.  This plotting script is also provided on GitHub.
+Upon completion, we receive 10 sets of parameter estimates per optimisation method.  The format of the stand output, which contains the inference results, is different for each optimisation method.  We can use the following commands to summarise and plot the outcome.  This plotting script is also provided on GitHub.
 
 {\scriptsize{}\begin{verbatim}
 tail nm*.stdout -n 1 -q > nm-summary.txt
@@ -662,10 +642,10 @@ grep '500   1' pso-*.stdout > pso-summary.txt
 ./box-plot-simple.py pso-summary.txt 3 pso-summary.png
 \end{verbatim}}
 
-The first command collects the inference results from the NM optimizer.  The last statement in a NM execution's standard output contains estimates.  The second two commands collect the inference results from the GA and PSO optimizers.  The first solution/particle in the last generation/iteration, which is 500 in this experiment, contains the estimates.
+The first command collects the inference results from the NM optimiser.  The last line in a NM execution's standard output contains the final estimates.  The second two commands collect the inference results from the GA and PSO optimisers.  The first solution/particle in the last generation/iteration, which is 500 in this experiment, contains the estimates.
 
 {\scriptsize{}\begin{verbatim}
-[jade@fe1 iso]$ head *summary.txt
+$ head *summary.txt
 ==> ga-summary.txt <==
 ga-0.stdout: 500 1 -81395.70680891  0.00011837  1815.42025279  0.42354064
 ga-1.stdout: 500 1 -81470.10001761  0.00019243  1938.38996498  0.12963492
@@ -703,20 +683,20 @@ pso-8.stdout: 500 1 -81373.583 0.000186 1966.585 0.522 -81373.583 0.000186 1966.
 pso-9.stdout: 500 1 -81373.583 0.000186 1966.586 0.522 -81373.583 0.000186 1966.586 0.522
 \end{verbatim}}
 
-The plotting script simply place these estimates in box plots and present them visually.  The first parameter indicates the summary file to plot.  The second parameter indicates the number of parameters that this model has.  For the two-population isolation model, we have three parameters.  Each particle in PSO contains two sets of results, the local best and swarm best.  The second set, swarm's best should be used.  The last parameter specifies the output graphic file's name.  At the bottom of each box plot, i.e. a demographic parameter, the median value is printed.
+The plotting script simply place these estimates in box plots.  The first parameter indicates the summary file to plot.  The second parameter indicates the number of parameters that this model has.  For the two-population isolation model, we have three parameters.  Each particle in PSO contains two sets of results, the local best and swarm best.  The second set, swarm's best, should be used.  The last parameter specifies the output file's name.  At the bottom of each box plot we print the median value of the estimates.
 
-\begin{figure}
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{images/nm-summary.png}
-\includegraphics[width=\textwidth]{images/ga-summary.png}
-\includegraphics[width=\textwidth]{images/pso-summary.png}
-\caption{Summary of 10 independent CoalHMM execution on the two-population isolation model using the three optimization methods.}
+\subfloat[Nelder-Mead results.]{\includegraphics[width=\textwidth]{images/nm-summary.png}}\\
+\subfloat[Genetic Algorithm results.]{\includegraphics[width=\textwidth]{images/ga-summary.png}}\\
+\subfloat[Particle Swarm results.]{\includegraphics[width=\textwidth]{images/pso-summary.png}}
+\caption{Summary of 10 independent CoalHMM executions on the two-population isolation model using the three optimisation methods.}
 \label{fig:est-summary}
 \end{figure}
 
-The demographic parameters we use in this experiment are, 0.0002, 2083, and 0.5.  They are the split time of the two isolated populations, the coalescent rate, and the recombination rate, respectively.  These values are roughly recovered by CoalHMM.  We do recommend using PSO as it is the best tested and tuned optimization subroutine.
+The demographic parameters we use in this experiment are, 0.0002, 2083, and 0.5.  They are the split time of the two isolated populations, the coalescent rate, and the recombination rate, respectively.  These values are roughly recovered by CoalHMM for all the optimisers.
 
-In summary, the following commands conduct a full simulation and estimation data analysis, and it summarizes the final results by creating box plots and printing the median estimate for each parameter.
+In summary, the following commands conduct a full simulation and estimation data analysis, and it summarises the final results by creating box plots and printing the median estimate for each parameter.
 
 {\scriptsize{}\begin{verbatim}
 $ ./fsc251 -i input.par -n 1
@@ -730,9 +710,11 @@ $ grep '500   1' pso-*.stdout > pso-summary.txt
 $ ./box-plot-simple.py pso-summary.txt 3 pso-summary.png
 \end{verbatim}}
 
-The 1st command simulates a pairwise sequence alignment using the fastSIMCOAL2 program.  The 2nd command uses a custom script to convert the simulated alignment from the Arlequin format to the FASTA format.  The 3rd command prepares the ZipHMM directories using the FASTA sequences.  The 4th command executes CoalHMM's model inference and dumps the output to a file.  Potentially, multiple independent runs are dispatched and a HPC cluster is involved in this step.  The 5th command obtains the inference results from the output file.  The number 500 here is the maximum iteration count for this experiment, and the number 1 indicates the first particle in the last iteration.  Finally, the 6th command plots the parameters and presents the median estimates as the final results.
+The 1st command simulates a pairwise sequence alignment using the fastSIMCOAL2 program.  The 2nd command uses a custom script to convert the simulated alignment from the Arlequin format to the Fasta format.  The 3rd command prepares the ZipHMM directories using the Fasta sequences.  The 4th command executes CoalHMM's model inference and dumps the output to a file.  Potentially, multiple independent runs are dispatched and a HPC cluster is involved in this step.  The 5th command obtains the inference results from the output file.  The number 500 here is the maximum iteration count for this experiment, and the number 1 indicates the first particle in the last iteration.  Finally, the 6th command plots the parameters and presents the median estimates as the final results.
 
 \section{Conclusions}
+
+We have presented the Jocx framework for estimating parameters in different demographics scenarios for ancestral population genomics. 
 
 \todo[inline]{Write conclusions}
 
