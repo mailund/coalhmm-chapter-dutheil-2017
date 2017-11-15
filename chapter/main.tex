@@ -119,7 +119,7 @@ Jocx executes CoalHMMs by specifying a model and an optimiser. It uses sequence 
 
 Jocx takes two or more aligned sequences as input; the number of sequence pairs depends on the CoalHMM model specified for a particular execution. We will discuss CoalHMM model specification later. For example, for inference in a two-population isolation scenario~\cite{Mailund:2011dva}, we need a minimal of one pair of aligned sequences, one from each of the two population. The sequences form an alignment so they need to match in length and names.
 
-\todo{I don't understand the use of capital letters in the example...and isn't b.2 one longer than it should be? Also, maybe make clearer what you mean by "name"---I know you mean the headers in the FASTA files, but how are they used by the software? Jade: Below --- TM: I don't see where you explain this.}
+\todo{I don't understand the use of capital letters in the example. Jade: Below --- TM: I don't see where you explain the difference between capital and minor letters. Is this just a result of how the simulation pipeline pads the result of FastsimCoal?}
 
 In the following example, sequence \texttt{a} and sequence \texttt{b} form an alignment.  Each sequence may have multiple data segments, e.g. 1 and 2 in this example.  The names for these data segments need to be consistent between the two sequences.  In the software we have the data-preparation step and model-inference step.  In the data-preparation step, we supply Fasta sequences by providing their file names, e.g \texttt{a.fasta} and \texttt{b.fasta}.
 
@@ -714,9 +714,7 @@ The 1st command simulates a pairwise sequence alignment using the fastSIMCOAL2 p
 
 \section{Conclusions}
 
-We have presented the Jocx framework for estimating parameters in different demographics scenarios for ancestral population genomics. 
-
-\todo[inline]{Write conclusions}
+We have presented the Jocx tool for estimating parameters in ancestral population genomics. The tool uses a framework of pair-wise coalescent hidden Markov models combined in a composite likelihood to implement various demographic scenarios. A full list of available demographies are available through the tool's help command. Using a simple isolation model, we described an analysis pipeline based on simulating data and then analysing it using the three different optimisers implement in Jocx. This pipeline is available in the GitHub repository associated with this chapter, and serves as a good starting point for getting familiar with Jocx before moving to more involved models.
 
 
 \bibliographystyle{spbasic}
