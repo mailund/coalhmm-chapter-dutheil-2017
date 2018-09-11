@@ -18,7 +18,7 @@
 \usepackage{courier}        % selects Courier as typewriter font
 \usepackage{type1cm}        % activate if the above 3 fonts are
                             % not available on your system
-%
+
 \usepackage{makeidx}         % allows index generation
 \usepackage{graphicx}        % standard LaTeX graphics tool
                              % when including figure files
@@ -28,6 +28,10 @@
 \usepackage[sort&compress,numbers]{natbib}
 \usepackage{subfig}
 \usepackage{todonotes}
+
+% Because Julien wants it...
+\usepackage{setspace}
+\doublespacing
 
 %% macros for the manuscript.... %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -49,33 +53,38 @@
 
 \begin{document}
 
+\begin{description}
+	\item[Running header:] Ancestral population genomics with Jocx, a coalescent hidden Markov model
+	\item[Keywords:] Genome analysis, coalescence, hidden Markov models, population history inference
+\end{description}
+
 \title*{Ancestral population genomics with Jocx, a coalescent hidden Markov model}
 \author{Jade Yu Cheng and Thomas Mailund}
 \institute{Jade Yu Cheng \at Bioinformatics Research Centre, Aarhus University \email{ycheng@birc.au.dk}
 \and Thomas Mailund \at Bioinformatics Research Centre, Aarhus University \email{mailund@birc.au.dk}}
 \maketitle
 
-\abstract{Coalescence theory lets us probe the past demographics of present-day genetic samples and much information about the past can be gleaned from variation in rates of coalescence event as we trace genetic lineages back in time. Fewer and fewer lineages will remain, however, so there is a limit to how far back we can explore. Without recombination, we would not be able to explore ancient speciation events because of this---any meaningful species concept would require that individuals of one species are closer related than they are to individuals of another species, once speciation is complete. Recombination, however, opens a window to the deeper past. By scanning along a genomic alignment, we get a sequential variant of the coalescence process as it looked at the time of the speciation; a genetic signal that will never be lost to time. So-called coalescence hidden Markov models allow us to exploit this, and in this chapter, we present the tool Jocx that uses a framework of these models to infer demographic parameters in ancient speciation events.}
+\abstract{Coalescence theory lets us probe the past demographics of present-day genetic samples and much information about the past can be gleaned from variation in rates of coalescence event as we trace genetic lineages back in time. Fewer and fewer lineages will remain, however, so there is a limit to how far back we can explore. Without recombination, we would not be able to explore ancient speciation events because of this---any meaningful species concept would require that individuals of one species are closer related than they are to individuals of another species, once speciation is complete. Recombination, however, opens a window to the deeper past. By scanning along a genomic alignment, we get a sequential variant of the coalescence process as it looked at the time of the speciation. This pattern of coalescence times is fixed at speciation time and does not erode with time; although accumulated mutations and genomic rearrangements will eventually hide the signal, it enables us to glance at events in the past that would not be observable without recombination. So-called coalescence hidden Markov models allow us to exploit this, and in this chapter, we present the tool Jocx that uses a framework of these models to infer demographic parameters in ancient speciation events.}
 
 
 \section{Introduction}
 
-Understanding how species form and diverge is a central topic of biology, and by observing emerging species today, we can understand many of the genetic and environmental processes involved. Through such observations, we can understand the underlying forces that drive speciation, but to understand how specific speciations occurred in the past, and understand the specifics of how existing species formed, we must make the inference from the signals these events have left behind. The study of fossils is a powerful approach here, but not the only avenue to study past speciations; the speciation processes leave fossils in the genome of the resulting species, and through what you might call genetic archaeology we can study past events from the signals they left behind.
+Understanding how species form and diverge is a central topic of biology, and by observing emerging species today, we can understand many of the genetic and environmental processes involved. Through such observations, we can understand the underlying forces that drive speciation, but to understand how specific speciation events occurred in the past, and understand the specifics of how existing species formed, we must make the inference from the signals these events have left behind. The speciation processes leave genetic "fossils" in the genome of the resulting species, and through what you might call genetic palaeontology we can study past events from the signals they left behind.
 
 
-The main objectives of the methods we describe in this chapter are to infer demographic parameters, $\Theta$, given genetic data, $D$, through the model likelihood: $\lhd(\Theta\,|\,D)=\Pr(D\,|\,\Theta)$. Here, we assume that $\Theta$ contains information such as effective population sizes, time points where population structure changes (populations split or admix), or migration rates between populations. We can connect data and demographics through coalescence theory \cite{Hein:2004ta}. This theory gives us a way to assign probability densities to genealogies; densities that depend on the demographic parameters, $f(G\,|\,\Theta)$. Then, if we know the underlying genealogy, we can assign probabilities to observed data using standard algorithms such as \citet{Felsenstein_1981} and get $\Pr(D\,|\,G,\Theta)$. Theoretically, we now simply need to integrate away the nuisance parameter $G$ to get the desired likelihood
+The main objectives of the methods we describe in this chapter are to infer demographic parameters, $\Theta$, given genetic data, $D$, through the model likelihood: $\lhd(\Theta\,|\,D)=\Pr(D\,|\,\Theta)$. Here, we assume that $\Theta$ contains information such as effective population sizes, time points where population structure changes (populations split or admix), or migration rates between populations. We can connect data and demographics through coalescence theory \cite{Hein:2004ta}. This theory gives us a way to assign probability densities to genealogies; densities that depend on the demographic parameters, $f(G\,|\,\Theta)$. Then, if we know the underlying genealogy, we can assign probabilities to observed data using standard algorithms such as Felsenstein's likelihood recursion \citep{Felsenstein_1981} and get $\Pr(D\,|\,G,\Theta)$. Theoretically, we now simply need to integrate away the nuisance parameter $G$ to get the desired likelihood
 \begin{equation}
 	\label{eq:likelihood}
 	\lhd(\Theta\,|\,D) = \Pr(D\,|\,\Theta)
 	= \int \Pr(D\,|\,G,\Theta) f(G\,|\,\Theta) \intd G .
 \end{equation}
 
-In practice, however, the space of all possible genealogies prevents this beyond a small sample size of sequences and for any sizeable length of genetic material. Approximations are needed, and \emph{the sequential Markov coalescent} and \emph{coalescent hidden Markov models} approximate the likelihood in two steps: they assume that sites are independent given the genealogy, i.e.
+In practice, however, the space of all possible genealogies prevents this beyond a small sample size of sequences and for any sizeable length of genetic material. Approximations are needed, and \emph{the sequential Markov coalescent} (see Chapter 1) and \emph{coalescent hidden Markov models} approximate the likelihood in two steps: they assume that sites are independent given the genealogy, i.e.
 \begin{equation}
   \Pr(D\,|\,G,\Theta) \approx
   \prod_{i=1}^L \Pr(D_i\,|\,G_i,\Theta)
 \end{equation}
-where $L$ is the length of the sequence and $D_i$ is the data and $G_i$ the genealogy at site $i$, and assume that the dependency between genealogies is Markov:
+where $L$ is the length of the sequence and $D_i$ is the data and $G_i$ the genealogy at site $i$, and assume that the dependency between genealogies is Markovian:
 \begin{equation}
   \label{eq:markov-genealogy}
   f(G\,|\,\Theta) \approx
@@ -92,10 +101,10 @@ Both assumptions are known to be invalid, but simulation studies indicate that t
   	\prod_{i=1}^L \Pr(D_i\,|\,G_i,\Theta)
   	,
 \end{equation}
-which is the form of a \emph{hidden Markov model}, we can compute the likelihood efficiently using the so-called \emph{Forward} algorithm \cite[chapter 3]{durbin1998biological}.
+which is the form of a \emph{hidden Markov model}, we can compute the likelihood efficiently using the so-called \emph{Forward} algorithm (see Chapter 3 in \citet{durbin1998biological}).
 
 
-This efficiency has permitted us and others to apply this approximation to the coalescence to infer demographic parameters on whole genome data~\cite{Li:2011eza,Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga} in addition to inferring recombination patters \cite{Munch:2014cba,Munch:2014cwa} and scanning for signs of selection \cite{Dutheil:2015kl,Munch:2016dn}.
+This efficiency has permitted us and others (see Chapters 7 and 10) to apply this approximation to the coalescence to infer demographic parameters on whole genome data~\cite{Li:2011eza,Locke:2011gna, Hobolth:2011dia, Scally:2012ika, Prufer:2012ea, Miller:2012cxa, Abascal:2016cy, PradoMartinez:2013dna, Jonsson:2014fga} in addition to inferring recombination patterns \cite{Munch:2014cba,Munch:2014cwa} and scanning for signs of selection \cite{Dutheil:2015kl,Munch:2016dn}.
 
 \section{Software}
 
@@ -117,9 +126,9 @@ Jocx executes CoalHMMs by specifying a model and an optimiser. It uses sequence 
 
 \subsection{Preparing data}
 
-Jocx takes two or more aligned sequences as input; the number of sequence pairs depends on the CoalHMM model specified for a particular execution. We will discuss CoalHMM model specification later. For example, for inference in a two-population isolation scenario~\cite{Mailund:2011dva}, we need a minimal of one pair of aligned sequences, one from each of the two population. The sequences form an alignment so they need to match in length and names.
+Jocx takes two or more aligned sequences as input; the number of sequence pairs depends on the CoalHMM model specified for a particular execution. We will discuss CoalHMM model specification later. For example, for inference in a two-population isolation scenario~\cite{Mailund:2011dva}, we need a minimum of one pair of aligned sequences, with one sequence from each of the two populations. The input should should be FASTA files with names matching the names of the sequences we will use in the analysis, and since the sequences will be interpreted as aligned, they should all have the same lengths.
 
-In the following example, sequence \texttt{a} and sequence \texttt{b} form an alignment.  Each sequence may have multiple data segments, e.g. 1 and 2 in this example.  The names for these data segments need to be consistent between the two sequences.  In the software we have the data-preparation step and model-inference step.  In the data-preparation step, we supply Fasta sequences by providing their file names, e.g \texttt{a.fasta} and \texttt{b.fasta}.
+In the following example, sequence \texttt{a} and sequence \texttt{b} form an alignment.  Each sequence may have multiple data segments (e.g., contigs or chromosomes). In the example, we have two segments, 1 and 2.  The names for these data segments need to be consistent between the two sequences.  In the software we have the data-preparation step and model-inference step.  In the data-preparation step, we supply Fasta sequences by providing their file names, e.g \texttt{a.fasta} and \texttt{b.fasta}.
 
  {\scriptsize{}\begin{verbatim}
 $ ls
@@ -197,7 +206,7 @@ ziphmm_iso_a_b/2.ziphmm/original_sequence
 
 The exact structure of this directory is not important to how Jocx is used, but you must preprocess input sequences to match each demographic model you will analyse.
 
-To see the list of all support models, use the \texttt{--help} option. Here \texttt{iso} is the the two-population two-sequence isolation scenario, shown below.
+To see the list of all supported models, use the \texttt{--help} option. Here \texttt{iso} is the the two-population two-sequence isolation scenario, shown below.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py --help
@@ -295,24 +304,7 @@ ziphmm_admix23-6hmm_a1_a2  ziphmm_admix23-6hmm_a1_c1  ziphmm_admix23-6hmm_b1_c1
 ziphmm_admix23-6hmm_a1_b1  ziphmm_admix23-6hmm_b1_b2  ziphmm_admix23-6hmm_c1_c2
 \end{verbatim}}
 
-In the two-population isolation model, we have one demographic transition for a pair of samples.  That is from a two-population isolation scenario (Figure~\ref{fig:ctmc-iso}-a) to a single ancestral population scenario (Figure~\ref{fig:ctmc-iso}-b).  In the three-population admix model, we have three kinds of demographic transitions for a pair of samples.  They are from a two-population duration (Figure~\ref{fig:ctmc-iso}-a) to a three-population duration (Figure~\ref{fig:ctmc-admix23}-a), then to another two-population duration (Figure~\ref{fig:ctmc-admix23}-b), finally to a single ancestral population (Figure~\ref{fig:ctmc-iso}-b).  In the three-population duration, only two populations are allowed to exchange lineages, shown in (Figure~\ref{fig:ctmc-admix23}-a) as the 2nd and 3rd populations; hence we call this duration \texttt{buddy23}.  In the second two-population duration, one of the two populations only accepts lineages because it is not involved in the admixture event at the previous state space transition.   Since we have one population that never gives lineages during this time, we call this duration \texttt{greedy1}.
-
-\begin{figure}[t]
-\centering
-\subfloat[Two-population isolation state space.]{\includegraphics[scale=0.35]{images/isolation.png}}
-\qquad\qquad
-\subfloat[Single ancestral state space.]{\includegraphics[scale=0.35]{images/single.png}}
-\caption{Demographic transition in the two-population isolation model for a pair of samples.  Backwards in time, the state space transits from a two-population isolation scenario (a) to a single ancestral population scenario (b).}
-\label{fig:ctmc-iso}
-\end{figure}
-
-\begin{figure}[tp]
-\centering
-\subfloat[A three-population state space where two of the three are allowed to exchange lineages.]{\includegraphics[scale=0.35]{images/buddy23.png}}\\
-\subfloat[A two-population state space where one of the two is allowed to only accept lineages, no giving.]{\includegraphics[scale=0.35]{images/greedy1.png}}
-\caption{Demographic transitions in the three-population admix model for a pair of samples.  Backwards in time, the state space transits from a two-population isolation scenario (Figure~\ref{fig:ctmc-iso}-a) to a three-population scenario (a), then to another two-population scenario (b), and finally to a single ancestral population scenario (Figure~\ref{fig:ctmc-iso}-b).}
-\label{fig:ctmc-admix23}
-\end{figure}
+In the two-population isolation model, we have one demographic transition for a pair of samples.  That is from a two-population isolation scenario (Figure~1~(a) to a single ancestral population scenario (Figure~1~(b).  In the three-population admix model, we have three kinds of demographic transitions for a pair of samples.  They are from a two-population duration (Figure~1~(a) to a three-population duration (Figure~2~(a), then to another two-population duration (Figure~2~b), finally to a single ancestral population (Figure~1-b).  In the three-population duration, only two populations are allowed to exchange lineages, shown in (Figure~2~(a) as the 2nd and 3rd populations; hence we call this duration \texttt{buddy23}.  In the second two-population duration, one of the two populations only accepts lineages because it is not involved in the admixture event at the previous state space transition.   Since we have one population that never gives lineages during this time, we call this duration \texttt{greedy1}.
 
 \subsection{Inferring parameters}
 
@@ -371,7 +363,7 @@ In the output of NM's execution, we have a final report of whether or not the ex
 
 \subsubsection{GA}
 
-GA was introduced by John Holland in the 1970s \cite{holland1992genetic}. The idea is to encode each solution as a chromosome-like data structure and operate on them through actions analogous to genetic alterations, which usually involves selection, recombination, and mutation. For each type of alteration, people have developed different techniques.
+GA was introduced by John Holland in the 1970s \cite{holland1992genetic}. The idea is to encode each solution as a chromosome-like data structure and operate on them through actions analogous to genetic alterations, which usually involves selection, recombination, and mutation. For each type of alteration, various authors have developed different techniques.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso ga 0.0001 1000 0.1
@@ -427,7 +419,7 @@ In the output of GA's execution, we have multiple generations of solutions, and 
 
 \subsubsection{PSO}
 
-PSO was introduced by Eberhart and Kennedy in 1995 \cite{eberhart1995new} as an optimisation technique relying on stochastic processes, similar to GA. As its name implies, each individual solution mimics a particle in a swarm. Each particle holds a velocity and keeps track of the best positions it has experienced and best position the warm has experienced. The former encapsulates the social influence, i.e. a force pulling towards the swarm's best. The latter encapsulates the cognitive influence, i.e. a force pulling towards the particle's best. Both forces act on the velocity and drive the particle through a hyper parameter space.
+PSO was introduced by Eberhart and Kennedy in 1995 \cite{eberhart1995new} as an optimisation technique relying on stochastic processes, similar to GA. As its name implies, each individual solution mimics a particle in a swarm. Each particle holds a velocity and keeps track of the best positions it has experienced and best position the swarm has experienced. The former encapsulates the social influence, i.e. a force pulling towards the swarm's best. The latter encapsulates the cognitive influence, i.e. a force pulling towards the particle's best. Both forces act on the velocity and drive the particle through a hyper parameter space.
 
  {\scriptsize{}\begin{verbatim}
 $ Jocx.py run . iso pso 0.0001 1000 0.1
@@ -490,7 +482,7 @@ In the output of the PSO's execution, we have multiple generations and multiple 
 
 \section{Simulation, execution, and result summarisation}
 
-In this section, we will use a simulation experiment to show how to perform a full analysis and extract the final solution.  We will use the software fastSIMCOAL2 \cite{excoffier2013robust} to simulate sequences under given demographic parameters, and we will use the two-population isolation model. All scripts and input files used here can be found on GitHub.
+In this section, we will use a simulation experiment to show how to perform a full analysis and extract the final solution.  We will use the software fastSIMCOAL2 \cite{excoffier2013robust} to simulate sequences under given demographic parameters, and we will use the two-population isolation model. All scripts and input files used here can be found in the Companion Material of this book.
 
 We execute the following command to generate variable sites of a two-sequence alignment.
 
@@ -646,7 +638,7 @@ Jocx.py run . iso nm  0.0001 1000 0.1 > nm-1.stdout
 Jocx.py run . iso nm  0.0001 1000 0.1 > nm-9.stdout
 \end{verbatim}}
 
-Upon completion, we receive 10 sets of parameter estimates per optimisation method.  The format of the stand output, which contains the inference results, is different for each optimisation method.  We can use the following commands to summarise and plot the outcome.  This plotting script is also provided on GitHub.
+Upon completion, we receive 10 sets of parameter estimates per optimisation method.  The format of the stand output, which contains the inference results, is different for each optimisation method.  We can use the following commands to summarise and plot the outcome.  This plotting script is also provided in the Companion Material.
 
 {\scriptsize{}\begin{verbatim}
 tail nm*.stdout -n 1 -q > nm-summary.txt
@@ -657,7 +649,7 @@ grep '500   1' pso-*.stdout > pso-summary.txt
 ./box-plot-simple.py pso-summary.txt 3 pso-summary.png
 \end{verbatim}}
 
-The first command collects the inference results from the NM optimiser.  The last line in a NM execution's standard output contains the final estimates.  The second two commands collect the inference results from the GA and PSO optimisers.  The first solution/particle in the last generation/iteration, which is 500 in this experiment, contains the estimates.
+The results are shown in Figure~3. The first command collects the inference results from the NM optimiser.  The last line in a NM execution's standard output contains the final estimates.  The second two commands collect the inference results from the GA and PSO optimisers.  The first solution/particle in the last generation/iteration, which is 500 in this experiment, contains the estimates.
 
 {\scriptsize{}\begin{verbatim}
 $ head *summary.txt
@@ -700,15 +692,6 @@ pso-9.stdout: 500 1 -81373.583 0.000186 1966.586 0.522 -81373.583 0.000186 1966.
 
 The plotting script simply place these estimates in box plots.  The first parameter indicates the summary file to plot.  The second parameter indicates the number of parameters that this model has.  For the two-population isolation model, we have three parameters.  Each particle in PSO contains two sets of results, the local best and swarm best.  The second set, swarm's best, should be used.  The last parameter specifies the output file's name.  At the bottom of each box plot we print the median value of the estimates.
 
-\begin{figure}[tp]
-\centering
-\subfloat[Nelder-Mead results.]{\includegraphics[width=\textwidth]{images/nm-summary.png}}\\
-\subfloat[Genetic Algorithm results.]{\includegraphics[width=\textwidth]{images/ga-summary.png}}\\
-\subfloat[Particle Swarm results.]{\includegraphics[width=\textwidth]{images/pso-summary.png}}
-\caption{Summary of 10 independent CoalHMM executions on the two-population isolation model using the three optimisation methods.}
-\label{fig:est-summary}
-\end{figure}
-
 The demographic parameters we use in this experiment are, 0.0002, 2083, and 0.5.  They are the split time of the two isolated populations, the coalescent rate, and the recombination rate, respectively.  These values are roughly recovered by CoalHMM for all the optimisers.
 
 In summary, the following commands conduct a full simulation and estimation data analysis, and it summarises the final results by creating box plots and printing the median estimate for each parameter.
@@ -729,10 +712,22 @@ The 1st command simulates a pairwise sequence alignment using the fastSIMCOAL2 p
 
 \section{Conclusions}
 
-We have presented the Jocx tool for estimating parameters in ancestral population genomics. The tool uses a framework of pair-wise coalescent hidden Markov models combined in a composite likelihood to implement various demographic scenarios. A full list of available demographies are available through the tool's help command. Using a simple isolation model, we described an analysis pipeline based on simulating data and then analysing it using the three different optimisers implement in Jocx. This pipeline is available in the GitHub repository associated with this chapter, and serves as a good starting point for getting familiar with Jocx before moving to more involved models.
+We have presented the Jocx tool for estimating parameters in ancestral population genomics. The tool uses a framework of pair-wise coalescent hidden Markov models combined in a composite likelihood to implement various demographic scenarios. A full list of available demography models are available through the tool's help command. Using a simple isolation model, we described an analysis pipeline based on simulating data and then analysing it using the three different optimisers implement in Jocx. This pipeline is available in the Companion Material associated with this chapter, and serves as a good starting point for getting familiar with Jocx before moving to more involved models.
 
 
 \bibliographystyle{spbasic}
 \bibliography{references.bib}
+
+\newpage
+
+\section*{Figure 1}
+Demographic transition in the two-population isolation model for a pair of samples.  Backwards in time, the state space transits from a two-population isolation scenario (a) to a single ancestral population scenario (b).
+
+\section*{Figure 2}
+Demographic transitions in the three-population admix model for a pair of samples.  Backwards in time, the state space transits from a two-population isolation scenario (Figure~1~(a) to a three-population scenario (a), then to another two-population scenario (b), and finally to a single ancestral population scenario (Figure~1~(b)).
+
+\section*{Figure 3}
+Summary of 10 independent CoalHMM executions on the two-population isolation model using the three optimisation methods. The three columns show parameters speciation time, coalescence rate, and recombination rate, respectively. The simulated values of these parameters are 0.0002, 2083, and 0.5. The number written below each box-plot is the median value of the estimates shown on the y-axis. This median can be used as a point estimate for the parameters.
+
 
 \end{document}
